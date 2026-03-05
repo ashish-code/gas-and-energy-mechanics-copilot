@@ -184,3 +184,8 @@ local.toml
 
 # RAG data (FAISS index and document chunks)
 data/
+
+# Terraform — local state and provider cache (lock file IS committed)
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
