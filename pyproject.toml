@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "uv-dynamic-versioning"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
@@ -21,7 +21,7 @@ dependencies = [
   "typed-settings>=25.0.0,<26.0.0",
   "typed-settings[attrs]",
   "uvicorn[standard]",
-  "brightai-logging>=1.0.0",
+  "structlog>=24.0.0",
   "asgi-correlation-id>=4.3.4",
   "strands-agents[a2a]>=1.18.0",
   "faiss-cpu>=1.9.0",
@@ -30,11 +30,11 @@ dependencies = [
   "pyarrow>=18.0.0",
   "openai>=1.0.0"
 ]
-name = "ai-copilot"
-description = "An interactive RAG-powered conversation chatbot built on Strands AI Agent SDK which runs on EKS. Generated from the software-templates/python-cookiecutter template."
+name = "gas-and-energy-mechanics-copilot"
+description = "RAG-powered AI chatbot for gas & energy engineering documentation, built on Amazon Bedrock Nova Lite and FAISS."
 readme = "README.md"
 requires-python = "~=3.13.0"
-dynamic = ["version"]
+version = "1.0.0"
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov"]
@@ -51,23 +51,8 @@ parallel = true
 relative_files = true
 sigterm = true
 
-[tool.hatch.build.hooks.version]
-path = "src/brightai/ai_copilot/api/__version__.py"
-template = '''
-# DO NOT MODIFY
-# This file was automatically generated via uv-dynamic-versioning.
-# Changes to this file are ignored by git.
-# To re-enable tracking changes run:
-#   git update-index --no-assume-unchanged src/brightai/ai_copilot/api/__version__.py
-
-__version__ = "{version}"
-'''
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/brightai"]
-
-[tool.hatch.version]
-source = "uv-dynamic-versioning"
 
 [tool.mypy]
 disallow_any_generics = true
@@ -110,23 +95,4 @@ force-sort-within-sections = true
 known-first-party = ["brightai"]
 
 [tool.uv]
-required-version = "~=0.9.0"
 package = true
-cache-keys = [
-  {file = "pyproject.toml"},
-  {git = {commit = true, tags = true}}
-]
-keyring-provider = "subprocess"
-
-[[tool.uv.index]]
-default = true
-name = "brightai"
-publish-url = "https://aws@default-312851193143.d.codeartifact.us-west-2.amazonaws.com/pypi/pypi-private/"
-url = "https://aws@default-312851193143.d.codeartifact.us-west-2.amazonaws.com/pypi/pypi-frontend/simple"
-
-[tool.uv-dynamic-versioning]
-vcs = "git"
-style = "pep440"
-bump = true
-dirty = true
-fallback-version = "0.0.0"

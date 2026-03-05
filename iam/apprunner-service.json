@@ -1,0 +1,34 @@
+{
+  "ServiceName": "gas-and-energy-mechanics-copilot",
+  "SourceConfiguration": {
+    "ImageRepository": {
+      "ImageIdentifier": "414994224379.dkr.ecr.us-east-1.amazonaws.com/gas-and-energy-mechanics-copilot:latest",
+      "ImageConfiguration": {
+        "Port": "8080",
+        "RuntimeEnvironmentVariables": {
+          "AWS_REGION": "us-east-1",
+          "CONFIG_DIR": "/app/config"
+        }
+      },
+      "ImageRepositoryType": "ECR"
+    },
+    "AutoDeploymentsEnabled": false
+  },
+  "InstanceConfiguration": {
+    "Cpu": "1 vCPU",
+    "Memory": "2 GB",
+    "InstanceRoleArn": "arn:aws:iam::414994224379:role/gas-energy-copilot-apprunner-task-role"
+  },
+  "HealthCheckConfiguration": {
+    "Protocol": "HTTP",
+    "Path": "/health",
+    "Interval": 20,
+    "Timeout": 5,
+    "HealthyThreshold": 1,
+    "UnhealthyThreshold": 3
+  },
+  "Tags": [
+    {"Key": "project", "Value": "gas-and-energy-mechanics-copilot"},
+    {"Key": "owner",   "Value": "ashish-code"}
+  ]
+}
