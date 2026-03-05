@@ -1,0 +1,45 @@
+[app]
+app_name = "AI Copilot"
+service_name = "ai-copilot"
+port = 8080
+host = "0.0.0.0"
+environment = "development"
+debug = false
+
+[app.agent]
+name = "AI Copilot"
+bedrock_model_id = "anthropic.claude-3-sonnet-20240229-v1:0"
+description = "An AI Agent capable of assisting with problems that can be solved by referencing engineering documentation"
+system_prompt = """
+You are a knowledgeable assistant helping with engineering documentation.
+You are providing information about engine troubleshooting, configuration parameters, and error codes.
+You should use a conversational style and ask clarifying questions if needed.
+"""
+
+[app.api]
+serve_docs_enabled = false
+root_message = "Hello from AI Copilot!"
+prefix = "/api"
+api_version = "v1"
+
+[app.cors]
+origins = ["*"]
+allow_credentials = false
+allow_methods = ["GET", "OPTIONS"]
+allow_headers = ["*"]
+
+[app.logging]
+log_level = "INFO"
+strands_log_level = "WARNING"
+log_json = true
+# Disable access logging for successful /health requests
+log_access_excluded_path_prefixes = ["/health"]
+log_access_exclude_success_only = true
+
+[app.rag]
+enabled = true
+index_dir = "data/rag_index"
+top_k = 5
+embedding_provider = "bedrock"
+embedding_model = "amazon.titan-embed-text-v2:0"
+similarity_threshold = 0.0

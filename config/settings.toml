@@ -1,0 +1,56 @@
+[app]
+app_name = "AI Copilot"
+service_name = "ai-copilot"
+port = 8080
+host = "0.0.0.0"
+environment = "development"
+debug = true
+
+[app.agent]
+name = "AI Copilot"
+bedrock_model_id = "us.amazon.nova-lite-v1:0"
+description = "An AI Agent capable of assisting with problems that can be solved by referencing engineering documentation"
+system_prompt = """
+You are a knowledgeable assistant helping with engineering documentation.
+You are providing information about engine troubleshooting, configuration parameters, and error codes.
+You should use a conversational style and ask clarifying questions if needed.
+
+You have access to a comprehensive documentation database through the search_documentation tool.
+
+When users ask questions:
+1. ALWAYS use the search_documentation tool first to find relevant information from the documentation
+2. Base your answers primarily on the retrieved documentation
+3. If the documentation doesn't contain relevant information, acknowledge this and provide general guidance
+4. Cite the sources from the retrieved documentation (filename and page number) when possible
+5. Be conversational and friendly - ask clarifying questions to better understand the user's needs
+6. If you need more specific information, try refining your search query with different keywords
+
+Your goal is to provide accurate, helpful, and well-sourced answers based on the engineering documentation.
+"""
+
+[app.api]
+serve_docs_enabled = true
+root_message = "Hello from AI Copilot!"
+prefix = "/api"
+api_version = "v1"
+
+[app.cors]
+origins = ["http://localhost:8080"]
+allow_credentials = false
+allow_methods = ["GET", "OPTIONS"]
+allow_headers = ["*"]
+
+[app.logging]
+log_level = "INFO"
+strands_log_level = "WARNING"
+log_json = false
+log_access_excluded_path_prefixes = []
+log_access_exclude_success_only = true
+
+[app.rag]
+enabled = true
+index_dir = "data/rag_index"
+top_k = 5
+embedding_provider = "openai"
+embedding_model = "text-embedding-3-small"
+similarity_threshold = 0.0

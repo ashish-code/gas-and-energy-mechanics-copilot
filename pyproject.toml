@@ -1,0 +1,132 @@
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+  "coverage>=7.11.0",
+  "mypy[faster-cache]>=1.18.2",
+  "pytest>=8.4.2",
+  "pytest-cov>=7.0.0",
+  "pytest-integration>=0.2.3",
+  "pytest-mock>=3.15.1",
+  "strands-agents-tools[a2a-client]>=0.2.16",
+  "streamlit>=1.51.0",
+  "uvicorn[standard]>=0.38.0"
+]
+
+[project]
+dependencies = [
+  "fastapi[standard]",
+  "typed-settings>=25.0.0,<26.0.0",
+  "typed-settings[attrs]",
+  "uvicorn[standard]",
+  "brightai-logging>=1.0.0",
+  "asgi-correlation-id>=4.3.4",
+  "strands-agents[a2a]>=1.18.0",
+  "faiss-cpu>=1.9.0",
+  "boto3>=1.35.0",
+  "pandas>=2.0.0",
+  "pyarrow>=18.0.0",
+  "openai>=1.0.0"
+]
+name = "ai-copilot"
+description = "An interactive RAG-powered conversation chatbot built on Strands AI Agent SDK which runs on EKS. Generated from the software-templates/python-cookiecutter template."
+readme = "README.md"
+requires-python = "~=3.13.0"
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov"]
+dev = ["mypy", "ruff"]
+
+[tool.coverage.report]
+exclude_lines = ["@(abc\\.)?abstractmethod", "\\.\\.\\.$", "# pragma: no cover"]
+
+[tool.coverage.run]
+branch = true
+concurrency = ["multiprocessing", "thread"]
+omit = ["src/brightai/**/__version__.py", "tests/*"]
+parallel = true
+relative_files = true
+sigterm = true
+
+[tool.hatch.build.hooks.version]
+path = "src/brightai/ai_copilot/api/__version__.py"
+template = '''
+# DO NOT MODIFY
+# This file was automatically generated via uv-dynamic-versioning.
+# Changes to this file are ignored by git.
+# To re-enable tracking changes run:
+#   git update-index --no-assume-unchanged src/brightai/ai_copilot/api/__version__.py
+
+__version__ = "{version}"
+'''
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/brightai"]
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.mypy]
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+explicit_package_bases = true
+files = "src/,tests/"
+follow_imports = "normal"
+ignore_missing_imports = true
+mypy_path = "src/,stubs/,tests/"
+namespace_packages = true
+no_implicit_reexport = true
+plugins = []
+show_error_codes = true
+show_error_context = true
+strict_equality = true
+strict_optional = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[tool.pyrefly]
+project-includes = ["src/", "tests/"]
+search-path = ["src/", "tests/"]
+ignore-missing-imports = ["*"]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+unfixable = ["F841"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true
+known-first-party = ["brightai"]
+
+[tool.uv]
+required-version = "~=0.9.0"
+package = true
+cache-keys = [
+  {file = "pyproject.toml"},
+  {git = {commit = true, tags = true}}
+]
+keyring-provider = "subprocess"
+
+[[tool.uv.index]]
+default = true
+name = "brightai"
+publish-url = "https://aws@default-312851193143.d.codeartifact.us-west-2.amazonaws.com/pypi/pypi-private/"
+url = "https://aws@default-312851193143.d.codeartifact.us-west-2.amazonaws.com/pypi/pypi-frontend/simple"
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+bump = true
+dirty = true
+fallback-version = "0.0.0"
