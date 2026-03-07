@@ -1,30 +1,20 @@
 """
-AI Copilot - Interactive RAG Chatbot
+Gas & Energy Mechanics Copilot — Streamlit Frontend
 
-A professional Streamlit interface for the AI Copilot RAG chatbot.
-This application connects to the A2A server running locally and provides
-an enhanced chat experience with:
-
-- Real-time streaming responses from AWS Bedrock (Nova Lite)
-- RAG-powered answers using FAISS vector search (8,524+ docs)
-- Persistent conversation history within session
-- Clean, professional UI with source citations
-- Connection testing and error handling
-
-Architecture:
-- Backend: FastAPI A2A server with Strands Agent SDK
-- LLM: AWS Bedrock (openai.gpt-oss-120b-1:0)
-- Retrieval: FAISS index with OpenAI embeddings
-- Frontend: Streamlit chat interface
+Professional dark-themed chat interface connecting to the A2A server.
+Features: streaming responses, expandable source citations, sidebar controls.
 
 To run:
-1. Start A2A server: `export AWS_PROFILE=your-aws-profile && python3 -m uvicorn gas_energy_copilot.ai_copilot.entrypoint:app --reload --port 8080 --app-dir src`
-2. Run chatbot: `export AWS_PROFILE=your-aws-profile && streamlit run scripts/streamlit.py`
+    # Terminal 1 — start the backend
+    just dev
+
+    # Terminal 2 — start the UI
+    just chat
 """
 
 import asyncio
 import logging
-from typing import AsyncGenerator
+import re
 from uuid import uuid4
 
 from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
@@ -32,397 +22,284 @@ from a2a.types import Message, Part, Role, TextPart
 import httpx
 import streamlit as st
 
-# Configure logging to be less verbose for the UI
 logging.basicConfig(level=logging.WARNING)
-logger = logging.getLogger(__name__)
 
-DEFAULT_TIMEOUT = 300  # 5 minutes timeout
 DEFAULT_BASE_URL = "http://127.0.0.1:8080"
+DEFAULT_TIMEOUT = 300
+
+# ---------------------------------------------------------------------------
+# Page config — must be the very first Streamlit call
+# ---------------------------------------------------------------------------
+
+st.set_page_config(
+    page_title="Gas & Energy Mechanics Copilot",
+    page_icon="⚡",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ---------------------------------------------------------------------------
+# Custom CSS
+# ---------------------------------------------------------------------------
+
+st.markdown("""
+<style>
+/* ── Header banner ─────────────────────────────────────────────────── */
+.copilot-header {
+    background: linear-gradient(135deg, #1E40AF 0%, #1E3A8A 60%, #0F172A 100%);
+    padding: 1.5rem 2rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    border: 1px solid #2563EB;
+}
+.copilot-header h1 { margin: 0; font-size: 1.9rem; color: #F1F5F9; letter-spacing: -0.5px; }
+.copilot-header p  { margin: 0.3rem 0 0 0; color: #94A3B8; font-size: 0.95rem; }
+
+/* ── Sidebar ───────────────────────────────────────────────────────── */
+[data-testid="stSidebar"] {
+    background-color: #0F172A !important;
+    border-right: 1px solid #1E293B;
+}
+[data-testid="stSidebar"] .stMarkdown,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] p { color: #CBD5E1 !important; }
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3 { color: #3B82F6 !important; }
+
+/* ── Source citation expanders ─────────────────────────────────────── */
+.source-chip {
+    display: inline-block;
+    background: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-size: 0.78rem;
+    color: #93C5FD;
+    margin: 2px 3px;
+    font-family: monospace;
+}
+
+/* ── Status pills ──────────────────────────────────────────────────── */
+.pill-ok  { color: #34D399; font-weight: 600; }
+.pill-err { color: #F87171; font-weight: 600; }
+
+/* ── Welcome card ──────────────────────────────────────────────────── */
+.welcome-card {
+    background: #1E293B;
+    border: 1px solid #334155;
+    border-left: 4px solid #3B82F6;
+    border-radius: 8px;
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1rem;
+}
+.welcome-card h4 { margin: 0 0 0.5rem 0; color: #93C5FD; }
+.welcome-card ul { margin: 0; padding-left: 1.2rem; color: #CBD5E1; }
+.welcome-card li { margin-bottom: 0.25rem; }
+
+/* ── Chat messages ─────────────────────────────────────────────────── */
+[data-testid="stChatMessage"] {
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+}
+
+/* ── Scrollable chat history ───────────────────────────────────────── */
+.chat-area { max-height: 65vh; overflow-y: auto; }
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# A2A helpers
+# ---------------------------------------------------------------------------
 
 
-def create_message(*, role: Role = Role.user, text: str) -> Message:
-    """Create a properly formatted A2A message."""
+def _make_message(text: str) -> Message:
     return Message(
         kind="message",
-        role=role,
+        role=Role.user,
         parts=[Part(TextPart(kind="text", text=text))],
         message_id=uuid4().hex,
     )
 
 
-async def send_streaming_message(message: str, base_url: str = DEFAULT_BASE_URL) -> AsyncGenerator[str, None]:
-    """
-    Send a message to the A2A server and yield streaming response chunks.
-
-    Args:
-        message: The user's message to send
-        base_url: The A2A server URL
-
-    Yields:
-        String chunks of the response as they arrive
-    """
-    try:
-        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as httpx_client:
-            # Get agent card from the server
-            resolver = A2ACardResolver(httpx_client=httpx_client, base_url=base_url)
-            agent_card = await resolver.get_agent_card()
-
-            # Create streaming client
-            config = ClientConfig(
-                httpx_client=httpx_client,
-                streaming=True,
-            )
-            factory = ClientFactory(config)
-            client = factory.create(agent_card)
-
-            # Create and send message
-            msg = create_message(text=message)
-
-            # Process streaming response
-            async for event in client.send_message(msg):
-                if isinstance(event, tuple) and len(event) == 2:
-                    # Handle (Task, UpdateEvent) tuples - this is the main response format
-                    task, update_event = event
-
-                    # Extract text from the task's status message if it exists
-                    if (
-                        task
-                        and hasattr(task, "status")
-                        and task.status
-                        and hasattr(task.status, "message")
-                        and task.status.message
-                    ):
-                        status_message = task.status.message
-                        if hasattr(status_message, "parts") and status_message.parts:
-                            for part in status_message.parts:
-                                # Extract text from Part.root.text (based on debug output)
-                                if hasattr(part, "root") and hasattr(part.root, "text"):
-                                    yield part.root.text
-                                # Fallback for other part structures
-                                elif hasattr(part, "content") and hasattr(part.content, "text"):
-                                    yield part.content.text
-                                elif hasattr(part, "text"):
-                                    yield part.text
-
-                elif isinstance(event, Message):
-                    # Handle direct Message events (less common but possible)
-                    for part in event.parts or []:
+async def _stream(message: str, base_url: str, timeout: int):
+    """Yield text chunks from the A2A streaming endpoint."""
+    async with httpx.AsyncClient(timeout=timeout) as http:
+        resolver = A2ACardResolver(httpx_client=http, base_url=base_url)
+        agent_card = await resolver.get_agent_card()
+        client = ClientFactory(ClientConfig(httpx_client=http, streaming=True)).create(agent_card)
+        msg = _make_message(message)
+        async for event in client.send_message(msg):
+            if isinstance(event, tuple) and len(event) == 2:
+                task, _ = event
+                if task and hasattr(task, "status") and task.status and task.status.message:
+                    for part in task.status.message.parts or []:
+                        text = None
                         if hasattr(part, "root") and hasattr(part.root, "text"):
-                            yield part.root.text
-                        elif hasattr(part, "content") and hasattr(part.content, "text"):
-                            yield part.content.text
+                            text = part.root.text
                         elif hasattr(part, "text"):
-                            yield part.text
-                else:
-                    # Fallback for other response types
-                    yield str(event)
+                            text = part.text
+                        if text:
+                            yield text
+            elif isinstance(event, Message):
+                for part in event.parts or []:
+                    text = None
+                    if hasattr(part, "root") and hasattr(part.root, "text"):
+                        text = part.root.text
+                    elif hasattr(part, "text"):
+                        text = part.text
+                    if text:
+                        yield text
 
-    except Exception as e:
-        yield f"Error: {str(e)}"
 
-
-async def test_connection(base_url: str = DEFAULT_BASE_URL) -> tuple[bool, str]:
-    """Test connection to the A2A server."""
+async def _test_connection(base_url: str) -> tuple[bool, str]:
     try:
-        async with httpx.AsyncClient(timeout=10) as httpx_client:
-            resolver = A2ACardResolver(httpx_client=httpx_client, base_url=base_url)
-            agent_card = await resolver.get_agent_card()
-            return True, f"Connected successfully. Agent: {agent_card.name}"
+        async with httpx.AsyncClient(timeout=10) as http:
+            card = await A2ACardResolver(httpx_client=http, base_url=base_url).get_agent_card()
+            return True, card.name
     except Exception as e:
-        return False, f"Connection failed: {str(e)}"
+        return False, str(e)
 
 
-def main():
-    """Main Streamlit application."""
-    st.set_page_config(
-        page_title="AI Copilot",
-        page_icon="🤖",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
+# ---------------------------------------------------------------------------
+# Session state defaults
+# ---------------------------------------------------------------------------
 
-    # Custom CSS for better styling
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "connected" not in st.session_state:
+    st.session_state.connected = None   # None = untested, True/False = result
+if "conn_detail" not in st.session_state:
+    st.session_state.conn_detail = ""
+
+# ---------------------------------------------------------------------------
+# Sidebar
+# ---------------------------------------------------------------------------
+
+with st.sidebar:
+    st.markdown("## ⚡ Gas & Energy\nMechanics Copilot")
+    st.markdown("---")
+
+    st.markdown("### 🔌 Server")
+    server_url = st.text_input("Backend URL", value=DEFAULT_BASE_URL, label_visibility="collapsed")
+
+    if st.button("Test Connection", use_container_width=True):
+        with st.spinner("Connecting..."):
+            ok, detail = asyncio.run(_test_connection(server_url))
+        st.session_state.connected = ok
+        st.session_state.conn_detail = detail
+
+    if st.session_state.connected is True:
+        st.markdown(f'<p class="pill-ok">● Connected — {st.session_state.conn_detail}</p>',
+                    unsafe_allow_html=True)
+    elif st.session_state.connected is False:
+        st.markdown(f'<p class="pill-err">● Disconnected</p>', unsafe_allow_html=True)
+        st.caption(st.session_state.conn_detail)
+
+    st.markdown("---")
+    st.markdown("### ⚙️ Retrieval")
+    top_k = st.slider("Results (top-k)", min_value=1, max_value=10, value=5,
+                      help="Number of document chunks retrieved per query")
+
+    st.markdown("---")
+    st.markdown("### 📚 Model Info")
     st.markdown("""
-        <style>
-        /* Main container styling */
-        .main {
-            padding-top: 2rem;
-        }
+| Parameter | Value |
+|---|---|
+| LLM | GPT-OSS 120B via Bedrock |
+| Embeddings | Titan V2 (1024D) |
+| Index | FAISS IndexFlatIP |
+| Sources | 49 CFR 192, 193, 195 |
+| Region | us-east-1 |
+""")
 
-        /* Chat message styling - ensure proper contrast */
-        .stChatMessage {
-            border-radius: 10px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        /* User messages - blue background with dark text */
-        [data-testid="stChatMessageContent"]:has(.stChatMessage[data-testid*="user"]) {
-            background-color: #e3f2fd !important;
-            color: #1a1a1a !important;
-        }
-
-        /* Assistant messages - light gray background with dark text */
-        [data-testid="stChatMessageContent"]:has(.stChatMessage[data-testid*="assistant"]) {
-            background-color: #f5f5f5 !important;
-            color: #1a1a1a !important;
-        }
-
-        /* Header styling */
-        .chat-header {
-            background: linear-gradient(90deg, #1e3a8a 0%, #3730a3 100%);
-            padding: 2rem;
-            border-radius: 10px;
-            margin-bottom: 2rem;
-            color: white;
-        }
-
-        /* Info boxes - high contrast white background with border */
-        .stAlert {
-            background-color: #ffffff !important;
-            border: 2px solid #3730a3 !important;
-            color: #1a1a1a !important;
-        }
-
-        /* Info box text content */
-        .stAlert > div {
-            color: #1a1a1a !important;
-        }
-
-        /* Ensure all text in alerts is dark */
-        .stAlert * {
-            color: #1a1a1a !important;
-        }
-
-        /* Status badges */
-        .status-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 12px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        .status-success {
-            background-color: #10b981;
-            color: white;
-        }
-        .status-error {
-            background-color: #ef4444;
-            color: white;
-        }
-
-        /* Ensure markdown text is visible */
-        .stMarkdown {
-            color: inherit;
-        }
-
-        /* Chat input styling */
-        .stChatInput {
-            border-color: #3730a3;
-        }
-
-        /* Sidebar styling - white background with dark text */
-        [data-testid="stSidebar"] {
-            background-color: #ffffff !important;
-        }
-
-        [data-testid="stSidebar"] * {
-            color: #1a1a1a !important;
-        }
-
-        /* Sidebar headers */
-        [data-testid="stSidebar"] h1,
-        [data-testid="stSidebar"] h2,
-        [data-testid="stSidebar"] h3 {
-            color: #1e3a8a !important;
-        }
-
-        /* Sidebar markdown and text */
-        [data-testid="stSidebar"] .stMarkdown {
-            color: #1a1a1a !important;
-        }
-
-        /* Sidebar text input */
-        [data-testid="stSidebar"] input {
-            color: #1a1a1a !important;
-            background-color: #ffffff !important;
-        }
-
-        /* Success/error messages in sidebar */
-        [data-testid="stSidebar"] .stSuccess,
-        [data-testid="stSidebar"] .stError,
-        [data-testid="stSidebar"] .stInfo {
-            color: #1a1a1a !important;
-        }
-
-        /* Success/error messages */
-        .stSuccess {
-            background-color: #d1f2eb !important;
-            color: #0f5132 !important;
-            border: 1px solid #0f5132 !important;
-        }
-
-        .stError {
-            background-color: #f8d7da !important;
-            color: #721c24 !important;
-            border: 1px solid #721c24 !important;
-        }
-
-        /* Ensure button text is visible */
-        .stButton button {
-            color: #ffffff;
-            background-color: #3730a3;
-            border: none;
-        }
-
-        .stButton button:hover {
-            background-color: #1e3a8a;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # Header
-    st.markdown("""
-        <div class="chat-header">
-            <h1 style="margin: 0; font-size: 2.5rem;">🤖 AI Copilot</h1>
-            <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">
-                AI-powered engineering documentation assistant with RAG retrieval
-            </p>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Sidebar for configuration
-    with st.sidebar:
-        st.header("⚙️ Configuration")
-
-        # Server configuration
-        st.subheader("Server Settings")
-        server_url = st.text_input(
-            "A2A Server URL",
-            value=DEFAULT_BASE_URL,
-            help="URL where the A2A server is running"
-        )
-
-        # Connection status
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            if st.button("🔌 Test", use_container_width=True):
-                with st.spinner("Testing..."):
-                    success, message = asyncio.run(test_connection(server_url))
-                    st.session_state.connection_status = (success, message)
-
-        if "connection_status" in st.session_state:
-            success, message = st.session_state.connection_status
-            if success:
-                st.success("✅ Connected", icon="✅")
-            else:
-                st.error("❌ Disconnected", icon="❌")
-
-        st.markdown("---")
-
-        # System information
-        st.subheader("📊 System Info")
-        st.markdown("""
-        **Model**: AWS Bedrock Nova Lite
-        **Vector DB**: FAISS (8,524 docs)
-        **Embeddings**: OpenAI (1536D)
-        **Region**: us-west-2
-        """)
-
-        st.markdown("---")
-
-        # Usage instructions
-        st.subheader("📖 Quick Start")
-        st.markdown("""
-        1. Ensure A2A server is running
-        2. Test connection above
-        3. Ask questions about:
-           - Engine troubleshooting
-           - Configuration parameters
-           - Error codes
-           - Maintenance procedures
-        """)
-
-        st.markdown("---")
-
-        # Chat controls
-        st.subheader("🗑️ Chat Controls")
-        if st.button("Clear History", use_container_width=True):
-            st.session_state.messages = []
-            if "connection_status" in st.session_state:
-                del st.session_state.connection_status
-            st.rerun()
-
-        # Show message count
-        if "messages" in st.session_state and st.session_state.messages:
-            msg_count = len(st.session_state.messages)
-            st.info(f"💬 {msg_count} messages in history")
-
-    # Initialize chat history
-    if "messages" not in st.session_state:
+    st.markdown("---")
+    st.markdown("### 🗑️ Session")
+    if st.button("Clear History", use_container_width=True):
         st.session_state.messages = []
+        st.rerun()
+    if st.session_state.messages:
+        n = len(st.session_state.messages)
+        st.caption(f"{n} message{'s' if n != 1 else ''} in session")
 
-    # Main chat area
-    st.markdown("### 💬 Conversation")
+# ---------------------------------------------------------------------------
+# Main area — header
+# ---------------------------------------------------------------------------
 
-    # Show welcome message if no messages
-    if not st.session_state.messages:
-        st.info("""
-        👋 **Welcome to AI Copilot!**
+st.markdown("""
+<div class="copilot-header">
+  <h1>⚡ Gas &amp; Energy Mechanics Copilot</h1>
+  <p>AI assistant grounded in PHMSA regulations · 49 CFR Parts 192 · 193 · 195</p>
+</div>
+""", unsafe_allow_html=True)
 
-        I'm here to help you with engineering documentation queries. I can assist with:
-        - 🔧 Engine troubleshooting and diagnostics
-        - ⚙️ Configuration parameters and settings
-        - 🚨 Error codes and warnings
-        - 🔍 Maintenance and repair procedures
+# ---------------------------------------------------------------------------
+# Welcome card (only when no messages)
+# ---------------------------------------------------------------------------
 
-        **Try asking:**
-        - "What are the troubleshooting steps for engine issues?"
-        - "How do I check voltage readings?"
-        - "What does error code XYZ mean?"
-        """)
+if not st.session_state.messages:
+    st.markdown("""
+<div class="welcome-card">
+  <h4>How can I help you today?</h4>
+  <ul>
+    <li>Pipeline safety regulations and PHMSA compliance (49 CFR Part 192)</li>
+    <li>LNG facility design, operations, and safety requirements (Part 193)</li>
+    <li>Hazardous liquid pipeline integrity management (Part 195)</li>
+    <li>Compressor station operations and troubleshooting</li>
+    <li>Corrosion control, cathodic protection, and IMP requirements</li>
+  </ul>
+</div>
+""", unsafe_allow_html=True)
 
-    # Display chat messages
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+# ---------------------------------------------------------------------------
+# Chat history
+# ---------------------------------------------------------------------------
 
-    # Chat input with better prompt
-    if prompt := st.chat_input("Ask me anything about engineering documentation..."):
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+        if msg.get("sources"):
+            with st.expander(f"📄 {len(msg['sources'])} source(s) retrieved", expanded=False):
+                for src in msg["sources"]:
+                    st.markdown(
+                        f'<span class="source-chip">{src}</span>',
+                        unsafe_allow_html=True,
+                    )
 
-        # Generate assistant response
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            full_response = ""
+# ---------------------------------------------------------------------------
+# Chat input
+# ---------------------------------------------------------------------------
 
-            try:
-                # Use asyncio to handle the streaming response
-                async def get_response():
-                    response_text = ""
-                    async for chunk in send_streaming_message(prompt, server_url):
-                        if chunk.strip():  # Only add non-empty chunks
-                            response_text += chunk
-                            # Update the UI with current response + typing indicator
-                            message_placeholder.markdown(response_text + "▌")
-                    return response_text
+if prompt := st.chat_input("Ask about pipeline safety, LNG operations, compressor stations…"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-                with st.spinner("Thinking..."):
-                    full_response = asyncio.run(get_response())
+    with st.chat_message("assistant"):
+        placeholder = st.empty()
+        full_response = ""
 
-                message_placeholder.markdown(full_response)
+        async def collect():
+            text = ""
+            async for chunk in _stream(prompt, server_url, DEFAULT_TIMEOUT):
+                text += chunk
+                placeholder.markdown(text + "▌")
+            return text
 
-            except Exception as e:
-                error_message = f"Error communicating with A2A server: {str(e)}"
-                message_placeholder.error(error_message)
-                full_response = error_message
+        try:
+            with st.spinner("Searching documentation…"):
+                full_response = asyncio.run(collect())
+            placeholder.markdown(full_response)
+        except Exception as exc:
+            full_response = f"❌ Error: {exc}"
+            placeholder.error(full_response)
 
-        # Add assistant response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
+    # Parse source citations from response text (§ section refs and CFR mentions)
+    sources_found = list(dict.fromkeys(re.findall(r"(?:§\s*\d+\.\d+|49 CFR Part \d+)", full_response)))
 
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": full_response,
+        "sources": sources_found,
+    })
+    st.rerun()
 
-if __name__ == "__main__":
-    main()
