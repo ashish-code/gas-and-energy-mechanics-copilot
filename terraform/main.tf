@@ -77,12 +77,12 @@ resource "aws_iam_role_policy" "task_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "BedrockInvokeNovaLite"
+        Sid    = "BedrockInvokeGPT"
         Effect = "Allow"
         Action = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
         Resource = [
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/amazon.nova-lite-v1:0",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/us.amazon.nova-lite-v1:0",
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/openai.gpt-oss-120b-1:0",
+          "arn:aws:bedrock:${var.aws_region}::foundation-model/us.openai.gpt-oss-120b-1:0",
         ]
       },
       {

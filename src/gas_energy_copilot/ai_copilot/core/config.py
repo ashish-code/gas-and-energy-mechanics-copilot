@@ -62,8 +62,8 @@ class RAGSettings:
     enabled: bool = True
     index_dir: str = "data/rag_index"
     top_k: int = 5
-    embedding_provider: str = "bedrock"  # "openai" or "bedrock"
-    embedding_model: str = "amazon.titan-embed-text-v2:0"  # Bedrock: amazon.titan-embed-text-v2:0, OpenAI: text-embedding-3-small
+    embedding_region: str = "us-east-1"
+    embedding_model: str = "amazon.titan-embed-text-v2:0"
     similarity_threshold: float = 0.0  # Minimum similarity score to include results
 
 

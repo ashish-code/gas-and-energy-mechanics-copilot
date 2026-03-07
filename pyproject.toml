@@ -28,7 +28,6 @@ dependencies = [
   "boto3>=1.35.0",
   "pandas>=2.0.0",
   "pyarrow>=18.0.0",
-  "openai>=1.0.0"
 ]
 name = "gas-and-energy-mechanics-copilot"
 description = "RAG-powered AI chatbot for gas & energy engineering documentation, built on Amazon Bedrock Nova Lite and FAISS."

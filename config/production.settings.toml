@@ -8,7 +8,7 @@ debug = false
 
 [app.agent]
 name = "AI Copilot"
-bedrock_model_id = "us.amazon.nova-lite-v1:0"
+bedrock_model_id = "openai.gpt-oss-120b-1:0"
 description = "An AI Agent specialising in gas and energy engineering documentation"
 system_prompt = """
 You are a knowledgeable assistant specialising in gas and energy engineering documentation.
@@ -52,6 +52,6 @@ log_access_exclude_success_only = true
 enabled = true
 index_dir = "data/rag_index"
 top_k = 5
-embedding_provider = "bedrock"
 embedding_model = "amazon.titan-embed-text-v2:0"
+embedding_region = "us-east-1"
 similarity_threshold = 0.0

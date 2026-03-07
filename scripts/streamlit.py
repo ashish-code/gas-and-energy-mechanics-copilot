@@ -13,7 +13,7 @@ an enhanced chat experience with:
 
 Architecture:
 - Backend: FastAPI A2A server with Strands Agent SDK
-- LLM: AWS Bedrock (us.amazon.nova-lite-v1:0)
+- LLM: AWS Bedrock (openai.gpt-oss-120b-1:0)
 - Retrieval: FAISS index with OpenAI embeddings
 - Frontend: Streamlit chat interface
 
