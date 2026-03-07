@@ -104,7 +104,7 @@ echo "✅ All required packages verified"
 echo ""
 
 # Launch server
-$PYTHON_CMD -m uvicorn brightai.ai_copilot.entrypoint:app \
+$PYTHON_CMD -m uvicorn gas_energy_copilot.ai_copilot.entrypoint:app \
     --reload \
     --port 8080 \
     --app-dir src

@@ -3,8 +3,8 @@ from strands.models import BedrockModel
 from strands.tools import tool
 import structlog.stdlib
 
-from brightai.ai_copilot.core.config import AgentSettings, ApplicationConfig
-from brightai.ai_copilot.core.service_manager import get_service_manager
+from gas_energy_copilot.ai_copilot.core.config import AgentSettings, ApplicationConfig
+from gas_energy_copilot.ai_copilot.core.service_manager import get_service_manager
 
 log = structlog.stdlib.get_logger()
 

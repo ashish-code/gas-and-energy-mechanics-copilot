@@ -6,11 +6,11 @@ from starlette.middleware.cors import CORSMiddleware
 from strands.multiagent.a2a import A2AServer
 import structlog.stdlib
 
-from brightai.ai_copilot.core.config import app_config
-from brightai.ai_copilot.core.router import router
-from brightai.ai_copilot.core.service_manager import initialize_expensive_services
-from brightai.ai_copilot.middleware.logging import LoggingMiddleware
-from brightai.ai_copilot.services.agent_service import AgentService
+from gas_energy_copilot.ai_copilot.core.config import app_config
+from gas_energy_copilot.ai_copilot.core.router import router
+from gas_energy_copilot.ai_copilot.core.service_manager import initialize_expensive_services
+from gas_energy_copilot.ai_copilot.middleware.logging import LoggingMiddleware
+from gas_energy_copilot.ai_copilot.services.agent_service import AgentService
 
 log = structlog.stdlib.get_logger()
 

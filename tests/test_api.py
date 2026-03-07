@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 import pytest
 
-from brightai.ai_copilot.core.application import initialize_app
+from gas_energy_copilot.ai_copilot.core.application import initialize_app
 
 
 @pytest.fixture

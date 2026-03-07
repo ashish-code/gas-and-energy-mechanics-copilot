@@ -18,6 +18,6 @@ router = APIRouter()
 )
 async def get_version() -> str:
     """Get the application version."""
-    from brightai.ai_copilot.api.__version__ import __version__
+    from gas_energy_copilot.ai_copilot.api.__version__ import __version__
 
     return __version__

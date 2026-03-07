@@ -1,51 +1,156 @@
-# AI Copilot
+# Gas & Energy Mechanics Copilot
 
-An interactive RAG-powered chatbot for engineering documentation built on Strands AI Agent SDK, AWS Bedrock, and FAISS vector search. The application serves as an AI-powered assistant capable of answering questions about engine troubleshooting, configuration parameters, and maintenance procedures.
+<div align="center">
 
-## Features
+[![Python](https://img.shields.io/badge/Python-3.13+-3776AB?style=flat-square&logo=python)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![AWS Bedrock](https://img.shields.io/badge/AWS-Bedrock-FF9900?style=flat-square&logo=amazon-aws)](https://aws.amazon.com/bedrock/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-### Core Technologies
+**RAG-powered AI chatbot for gas & energy engineering documentation.**  
+Built on Strands AI Agent SDK, Amazon Bedrock Nova Lite, and FAISS vector search.
 
-- **[Strands AI Agent SDK](https://strandsagents.com/)** - Modern AI agent framework with A2A protocol support
-- **[Amazon Bedrock](https://aws.amazon.com/)** - Serverless AI (Nova Lite model for LLM inference)
-- **[FAISS](https://github.com/facebookresearch/faiss)** - Vector similarity search for RAG retrieval
-- **[OpenAI Embeddings](https://platform.openai.com/)** - text-embedding-3-small (1536D) for semantic search
-- **[FastAPI](https://fastapi.tiangolo.com/)** - High-performance async web framework
-- **[Streamlit](https://streamlit.io/)** - Interactive web UI for chatbot interface
+</div>
 
-### Key Capabilities
+---
 
-- **RAG (Retrieval-Augmented Generation)** - Searches 8,524+ engineering document chunks
-- **Real-time Streaming** - Live AI responses via A2A protocol
-- **Source Citations** - Automatic filename and page number references
-- **Conversational AI** - Natural language understanding with clarifying questions
-- **Tool-based Retrieval** - Agent autonomously decides when to search documentation
-- **High-Contrast UI** - Professional Streamlit interface with WCAG AA compliance
+## Key Idea
+
+Engineering teams spend hours searching manuals and documentation for answers about engine troubleshooting, configuration parameters, and maintenance procedures. This copilot augments that workflow:
+
+```
+User Question
+     ↓
+Streamlit UI → A2A Server (FastAPI)
+                    ↓
+             Strands Agent (Bedrock Nova Lite)
+                    ↓
+             ┌──────┴──────┐
+             ↓             ↓
+         RAG Service    Bedrock LLM
+         (FAISS +       (Nova Lite)
+          Bedrock        direct answer
+          embeddings)
+             ↓
+     Top-5 document chunks
+             ↓
+     Answer with source citations
+```
+
+The hypothesis: a domain-specialised RAG index over engineering manuals, combined with a capable LLM, produces more reliable answers than general-purpose search — especially for error codes, configuration parameters, and maintenance sequences.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph UI["Frontend (scripts/streamlit.py)"]
+        SL["Streamlit Chat UI\nhttp://localhost:8501"]
+    end
+
+    subgraph Server["Backend (src/gas_energy_copilot/)"]
+        FP["FastAPI + A2A Server\nhttp://localhost:8080"]
+        AG["Strands Agent\nBedrock Nova Lite"]
+        RS["RAG Service\nFAISS IndexFlatIP"]
+    end
+
+    subgraph Data["Data (data/rag_index/)"]
+        FI["FAISS index\n(vector embeddings)"]
+        CP["chunks.parquet\n(document text)"]
+        ME["meta.json\n(index metadata)"]
+    end
+
+    SL -->|A2A protocol| FP
+    FP --> AG
+    AG -->|search_documentation tool| RS
+    RS --> FI
+    RS --> CP
+    RS --> ME
+```
+
+---
+
+## Repository Layout
+
+```
+gas-and-energy-mechanics-copilot/
+├── src/
+│   └── gas_energy_copilot/          # Installable Python package
+│       ├── logging.py               # Structured logging setup
+│       └── ai_copilot/
+│           ├── entrypoint.py        # FastAPI app + uvicorn target
+│           ├── api/                 # Health, version, debug endpoints
+│           ├── core/                # Config, router, service manager
+│           ├── middleware/          # Request/response logging
+│           └── services/
+│               ├── agent_service.py # Strands agent + tool wiring
+│               └── rag_service.py   # FAISS retrieval + Bedrock embeddings
+├── config/
+│   ├── settings.toml                # Dev config (agent prompt, RAG params)
+│   ├── production.settings.toml     # Production overrides
+│   └── uvicorn-logging-config.json  # Structured log format
+├── data/
+│   └── rag_index/                   # FAISS index + document chunks (baked in Docker)
+│       ├── index.faiss
+│       ├── chunks.parquet
+│       └── meta.json
+├── scripts/
+│   ├── build_index.py               # Build FAISS index from source documents
+│   └── streamlit.py                 # Chatbot UI
+├── iam/
+│   ├── apprunner-service.json        # App Runner service definition
+│   └── apprunner-task-role-policy.json
+├── tests/
+│   └── test_api.py                  # API integration tests
+├── Dockerfile                        # Multi-stage build (builder + runtime)
+├── pyproject.toml                    # hatchling build, uv deps
+├── run_server.sh                     # Local dev server launcher
+└── run_chatbot.sh                    # Local Streamlit launcher
+```
+
+---
+
+## Installation
+
+Requires Python 3.13+. Uses [uv](https://docs.astral.sh/uv/) for dependency management.
+
+```bash
+git clone https://github.com/ashish-code/gas-and-energy-mechanics-copilot.git
+cd gas-and-energy-mechanics-copilot
+
+# Using uv (recommended)
+uv sync
+
+# Or pip
+pip install -e .
+```
+
+---
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.12+ with Anaconda
-- OpenAI API key (for embeddings)
-- AWS credentials with Bedrock access (profile: `bai-core-gbl-ai-ai_developer`)
+- AWS credentials with Bedrock access (us-west-2 region, Amazon Titan Embeddings + Nova Lite)
+- OpenAI API key (for embeddings during index build; Bedrock embeddings used at runtime)
 
-### Setup (2 Simple Steps!)
+### 1 — Configure credentials
 
-**Step 1: Start the A2A Server**
+```bash
+cp .env_sample .env
+# Edit .env: set OPENAI_API_KEY and AWS_PROFILE
+```
+
+### 2 — Start the A2A server
 
 ```bash
 ./run_server.sh
 ```
 
-The script will:
-- ✅ Load environment from `.env` file
-- ✅ Verify AWS credentials
-- ✅ Check all required packages
-- ✅ Start server on http://localhost:8080
-- ✅ Load RAG index (8,524 document vectors)
+Starts on `http://localhost:8080`. Loads the RAG index on startup.
 
-**Step 2: Launch the Chatbot UI**
+### 3 — Launch the chatbot UI
 
 In a new terminal:
 
@@ -53,243 +158,88 @@ In a new terminal:
 ./run_chatbot.sh
 ```
 
-The Streamlit UI will open at http://localhost:8501
+Opens Streamlit at `http://localhost:8501`.
 
-### Configuration
-
-All credentials are stored in `.env` (already configured):
-
-```bash
-export OPENAI_API_KEY="your-key-here"
-export AWS_PROFILE="bai-core-gbl-ai-ai_developer"
-export CONFIG_DIR="./config"
-```
-
-This file is in `.gitignore` and won't be committed to git.
-
-## Usage Examples
-
-### Example Queries
-
-- "What are the daily maintenance procedures for ASC systems?"
-- "How do I troubleshoot engine RPM issues?"
-- "What does error code XYZ mean?"
-- "Explain the voltage reading configuration parameters"
-- "What's the proper air gap setting for speed sensors?"
-
-### Expected Behavior
-
-The chatbot will:
-1. Search the documentation database using FAISS
-2. Retrieve the top 5 most relevant chunks
-3. Provide an answer based on retrieved content
-4. Cite sources with filename and page numbers
-5. Ask clarifying questions if needed
-
-## Architecture
-
-```
-User Query → Streamlit UI → A2A Server → Strands Agent
-                                              ↓
-                                    ┌─────────┴─────────┐
-                                    ↓                   ↓
-                            RAG Service          Bedrock LLM
-                            (FAISS + OpenAI)     (Nova Lite)
-                                    ↓
-                            8,524 Document Chunks
-```
-
-### System Configuration
-
-- **LLM Model**: AWS Bedrock Nova Lite (us.amazon.nova-lite-v1:0)
-- **Vector Database**: FAISS IndexFlatIP (cosine similarity)
-- **Embeddings**: OpenAI text-embedding-3-small (1536D)
-- **Document Count**: 8,524 chunks
-- **Top-K Retrieval**: 5 documents per query
-- **Region**: us-west-2
-- **Server Port**: 8080
-- **UI Port**: 8501
-
-## Project Structure
-
-```
-.
-├── config/
-│   └── settings.toml          # Agent & RAG configuration
-├── data/
-│   └── rag_index/             # FAISS index + document chunks
-├── src/
-│   └── brightai/
-│       └── ai_copilot/
-│           ├── services/
-│           │   ├── rag_service.py      # RAG retrieval logic
-│           │   └── agent_service.py    # Strands agent setup
-│           └── core/
-│               └── config.py           # Configuration schema
-├── scripts/
-│   └── streamlit.py           # Chatbot UI
-├── .env                       # Environment variables (gitignored)
-├── run_server.sh              # Server launcher
-├── run_chatbot.sh             # Chatbot UI launcher
-├── test_rag_retrieval.py      # RAG testing script
-└── RAG_IMPLEMENTATION.md      # Detailed technical docs
-```
-
-## Testing
-
-### Test RAG Retrieval
-
-```bash
-python3 test_rag_retrieval.py
-```
-
-Expected output:
-```
-✅ OpenAI API is working! Embedding dimension: 1536
-✅ FAISS index loaded: 8524 vectors
-✅ Retrieved 3 chunks with citations
-```
-
-### Test Server Health
-
-```bash
-curl http://localhost:8080/health
-```
-
-Expected response:
-```json
-{"status":"healthy","service":"ai-copilot"}
-```
-
-### Test End-to-End
-
-```bash
-python3 test_chatbot_e2e.py "What are the ASC maintenance procedures?"
-```
+---
 
 ## Configuration
 
-### Agent Settings (`config/settings.toml`)
+All settings live in `config/settings.toml`:
 
 ```toml
 [app.agent]
-name = "AI Copilot"
+name = "Gas & Energy Mechanics Copilot"
 bedrock_model_id = "us.amazon.nova-lite-v1:0"
-description = "An AI Agent capable of assisting with problems that can be solved by referencing engineering documentation"
 system_prompt = """
-You are a knowledgeable assistant helping with engineering documentation.
-You are providing information about engine troubleshooting, configuration parameters, and error codes.
-You should use a conversational style and ask clarifying questions if needed.
+You are a knowledgeable assistant specialising in gas and energy engineering documentation.
+Use the search_documentation tool to find relevant information before answering.
 """
-```
 
-### RAG Settings
-
-```toml
 [app.rag]
 enabled = true
 index_dir = "data/rag_index"
 top_k = 5
-embedding_provider = "openai"
-embedding_model = "text-embedding-3-small"
-similarity_threshold = 0.0
+embedding_provider = "bedrock"
+embedding_model = "amazon.titan-embed-text-v2:0"
 ```
-
-## Troubleshooting
-
-### Port Already in Use
-
-```bash
-lsof -ti:8080 | xargs kill -9
-./run_server.sh
-```
-
-### AWS Authentication Failed
-
-```bash
-gimme-aws-creds
-export AWS_PROFILE=bai-core-gbl-ai-ai_developer
-aws sts get-caller-identity
-```
-
-### Missing Packages
-
-```bash
-pip install openai faiss-cpu boto3 pandas pyarrow structlog uvicorn streamlit
-```
-
-### RAG Not Finding Documents
-
-Check server logs for:
-```
-[info] Loaded FAISS index with 8524 vectors
-[info] RAG service initialization completed
-```
-
-If missing, verify:
-1. `data/rag_index/` contains: index.faiss, chunks.parquet, meta.json
-2. OPENAI_API_KEY is set in `.env`
-3. Server logs show no errors during startup
-
-## Development
-
-### Original Setup (for reference)
-
-The project can also be run using the original `uv` and `just` setup:
-
-**Prerequisites:**
-- [`uv`](https://docs.astral.sh/uv/) >= v0.9.0
-- [`just`](https://just.systems/man/en/) >= 1.42.4
-
-**Commands:**
-```bash
-just deps        # Install dependencies
-just dev         # Run development server
-just test        # Run tests
-```
-
-**Note:** CodeArtifact authentication is required for this approach.
-
-### Simplified Setup (recommended)
-
-The simplified setup bypasses CodeArtifact and uses system Python packages:
-
-```bash
-./run_server.sh   # Uses .env and system packages
-./run_chatbot.sh  # Launches Streamlit UI
-```
-
-This is the recommended approach for local development.
-
-## Deployment
-
-The application is container-ready and can be deployed to AWS EKS using the existing Terraform configuration in the `terraform/` directory.
-
-**Deployment files:**
-- `Dockerfile` - Container definition
-- `terraform/` - Infrastructure as code
-- `.deploy/` - Deployment configurations
-- `.github/workflows/` - CI/CD pipelines
-
-## Documentation
-
-- **[RAG_IMPLEMENTATION.md](RAG_IMPLEMENTATION.md)** - Comprehensive technical implementation details
-- **API Docs** - http://localhost:8080/docs (when server is running)
-- **Health Check** - http://localhost:8080/health
-
-## Support
-
-For issues or questions:
-- Check [RAG_IMPLEMENTATION.md](RAG_IMPLEMENTATION.md) for technical details
-- Review server logs for error messages
-- Test individual components with test scripts
-
-## License
-
-Internal BrightAI project - All rights reserved
 
 ---
 
-**Status:** ✅ Fully operational
-**Last Updated:** 2026-01-12
-**Version:** 1.0.0 (RAG-enabled)
+## Deployment
+
+The application runs on **AWS App Runner** using the provided `Dockerfile`.
+
+```bash
+# Build for App Runner (must target linux/amd64 — required for App Runner)
+docker build --platform linux/amd64 -t gas-and-energy-mechanics-copilot .
+
+# Push to ECR and deploy via App Runner
+# See iam/ directory for required IAM policies
+```
+
+> **Note:** Always build with `--platform linux/amd64` when deploying to App Runner from Apple Silicon.
+
+---
+
+## Building the RAG Index
+
+```bash
+export OPENAI_API_KEY="your-key"
+
+python scripts/build_index.py \
+    --docs-dir /path/to/engineering/manuals \
+    --output-dir data/rag_index
+```
+
+---
+
+## Testing
+
+```bash
+# API integration tests
+pytest tests/
+
+# Manual RAG test
+python test_rag_retrieval.py
+```
+
+---
+
+## References
+
+1. Joshi, A. et al. (2023). *RAG: Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks.*
+2. [Strands Agents SDK](https://strandsagents.com/) — AWS open-source agent framework.
+3. [Amazon Bedrock Nova Lite](https://aws.amazon.com/bedrock/) — Serverless LLM inference.
+4. [FAISS](https://github.com/facebookresearch/faiss) — Billion-scale similarity search, Facebook AI Research.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+  <sub>Built by <a href="https://github.com/ashish-code">Ashish Gupta</a> · Senior Data Scientist</sub>
+</div>

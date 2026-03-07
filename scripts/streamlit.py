@@ -18,7 +18,7 @@ Architecture:
 - Frontend: Streamlit chat interface
 
 To run:
-1. Start A2A server: `export AWS_PROFILE=your-aws-profile && python3 -m uvicorn brightai.ai_copilot.entrypoint:app --reload --port 8080 --app-dir src`
+1. Start A2A server: `export AWS_PROFILE=your-aws-profile && python3 -m uvicorn gas_energy_copilot.ai_copilot.entrypoint:app --reload --port 8080 --app-dir src`
 2. Run chatbot: `export AWS_PROFILE=your-aws-profile && streamlit run scripts/streamlit.py`
 """
 

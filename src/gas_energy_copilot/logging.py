@@ -1,6 +1,6 @@
 """
-Minimal brightai.logging shim for local development without CodeArtifact.
-This provides a compatible interface with the real brightai-logging package.
+Minimal gas_energy_copilot.logging shim for local development without CodeArtifact.
+Provides a compatible interface with structured logging setup.
 """
 
 import logging
@@ -9,7 +9,7 @@ from enum import Enum
 
 
 class LogLevels(Enum):
-    """Log levels enum matching brightai.logging.LogLevels."""
+    """Log levels enum matching gas_energy_copilot.logging.LogLevels."""
     DEBUG = logging.DEBUG
     INFO = logging.INFO
     WARNING = logging.WARNING
@@ -44,4 +44,4 @@ def setup_logging(
             logger = logging.getLogger(logger_name)
             logger.setLevel(level.value)
 
-    logging.info("Logging configured (using local shim - brightai-logging not available)")
+    logging.info("Logging configured")

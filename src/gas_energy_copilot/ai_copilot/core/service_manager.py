@@ -4,7 +4,7 @@ import asyncio
 import structlog.stdlib
 from typing import Any, Dict, Optional, TypeVar
 
-from brightai.ai_copilot.core.config import ApplicationConfig
+from gas_energy_copilot.ai_copilot.core.config import ApplicationConfig
 
 log = structlog.stdlib.get_logger()
 
@@ -125,7 +125,7 @@ def get_service_manager() -> ServiceManager:
 
 async def initialize_rag_service(config: ApplicationConfig):
     """Factory function to create and initialize RAG service."""
-    from brightai.ai_copilot.services.rag_service import RAGService
+    from gas_energy_copilot.ai_copilot.services.rag_service import RAGService
 
     log.info("Creating RAG service instance")
     rag_service = RAGService(config.rag)

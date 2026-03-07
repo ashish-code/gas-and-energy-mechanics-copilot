@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 import structlog.stdlib
 
-from brightai.ai_copilot.core.config import app_config
+from gas_energy_copilot.ai_copilot.core.config import app_config
 
 config = app_config()
 log = structlog.stdlib.get_logger()

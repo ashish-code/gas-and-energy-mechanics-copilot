@@ -47,7 +47,7 @@ ENV CONFIG_DIR="/app/config"
 EXPOSE 8080
 
 CMD ["/app/.venv/bin/uvicorn", \
-     "brightai.ai_copilot.entrypoint:app", \
+     "gas_energy_copilot.ai_copilot.entrypoint:app", \
      "--log-config", "/app/config/uvicorn-logging-config.json", \
      "--host", "0.0.0.0", \
      "--port", "8080"]

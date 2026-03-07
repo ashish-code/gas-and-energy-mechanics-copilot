@@ -48,7 +48,7 @@ else
     echo ""
     echo "Or manually:"
     echo "   source .env"
-    echo "   python3 -m uvicorn brightai.ai_copilot.entrypoint:app --reload --port 8080 --app-dir src"
+    echo "   python3 -m uvicorn gas_energy_copilot.ai_copilot.entrypoint:app --reload --port 8080 --app-dir src"
     echo ""
     exit 1
 fi

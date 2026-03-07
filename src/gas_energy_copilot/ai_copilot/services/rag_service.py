@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import structlog.stdlib
 
-from brightai.ai_copilot.core.config import RAGSettings
+from gas_energy_copilot.ai_copilot.core.config import RAGSettings
 
 log = structlog.stdlib.get_logger()
 

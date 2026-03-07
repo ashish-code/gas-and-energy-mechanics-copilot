@@ -1,9 +1,9 @@
 from fastapi import APIRouter
 import structlog.stdlib
 
-from brightai.ai_copilot.api import debug, health, version
-from brightai.ai_copilot.api.v1.endpoints import api_router
-from brightai.ai_copilot.core.config import app_config
+from gas_energy_copilot.ai_copilot.api import debug, health, version
+from gas_energy_copilot.ai_copilot.api.v1.endpoints import api_router
+from gas_energy_copilot.ai_copilot.core.config import app_config
 
 config = app_config()
 log = structlog.stdlib.get_logger()

@@ -26,7 +26,7 @@ User Query → Strands Agent → search_documentation tool → RAG Service
 
 ### Key Components
 
-#### 1. RAG Service ([rag_service.py](src/brightai/ai_copilot/services/rag_service.py))
+#### 1. RAG Service ([rag_service.py](src/gas_energy_copilot/ai_copilot/services/rag_service.py))
 
 **Responsibilities:**
 - Load FAISS index (8,524 document vectors)
@@ -41,7 +41,7 @@ User Query → Strands Agent → search_documentation tool → RAG Service
 - **Source tracking**: Extracts filename and page from chunk metadata
 - **Configurable retrieval**: top_k and similarity threshold
 
-#### 2. Agent Integration ([agent_service.py](src/brightai/ai_copilot/services/agent_service.py))
+#### 2. Agent Integration ([agent_service.py](src/gas_energy_copilot/ai_copilot/services/agent_service.py))
 
 The agent has a `search_documentation` tool that:
 - Retrieves relevant chunks from RAG service
@@ -62,7 +62,7 @@ embedding_model = "text-embedding-3-small"
 similarity_threshold = 0.0
 ```
 
-**Schema:** [config.py](src/brightai/ai_copilot/core/config.py)
+**Schema:** [config.py](src/gas_energy_copilot/ai_copilot/core/config.py)
 ```python
 @define
 @ts.settings
@@ -114,7 +114,7 @@ class RAGSettings:
 1. **Python 3.13** (as specified in pyproject.toml)
 2. **OpenAI API Key** (for embeddings)
 3. **AWS Credentials** (for Bedrock LLM and optional Bedrock embeddings)
-4. **AWS CodeArtifact access** (for brightai-logging package)
+4. **AWS credentials with Bedrock access
 
 ### Installation
 
@@ -330,7 +330,7 @@ ai-copilot/
 │       ├── index.faiss
 │       ├── chunks.parquet
 │       └── meta.json
-├── src/brightai/ai_copilot/
+├── src/gas_energy_copilot/ai_copilot/
 │   ├── core/
 │   │   ├── config.py              # RAG settings schema
 │   │   ├── service_manager.py     # RAG initialization
@@ -442,7 +442,7 @@ pip3 install --upgrade pyarrow pandas
 pip3 install --user structlog
 ```
 
-2. **Create logging shim** (already at `src/brightai/logging.py`):
+2. **Create logging shim** (already at `src/gas_energy_copilot/logging.py`):
 ```python
 import logging
 from enum import Enum
@@ -466,7 +466,7 @@ def setup_logging(force_json=False, root_logger_level=LogLevels.INFO, logger_lev
 export OPENAI_API_KEY="your-key"
 export CONFIG_DIR=./config
 
-python3 -m uvicorn brightai.ai_copilot.entrypoint:app \
+python3 -m uvicorn gas_energy_copilot.ai_copilot.entrypoint:app \
     --reload \
     --port 8080 \
     --app-dir src
