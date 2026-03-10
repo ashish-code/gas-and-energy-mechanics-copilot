@@ -3,44 +3,25 @@ from contextlib import asynccontextmanager
 from asgi_correlation_id import CorrelationIdMiddleware
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
-from strands.multiagent.a2a import A2AServer
 import structlog.stdlib
 
 from gas_energy_copilot.ai_copilot.core.config import app_config
 from gas_energy_copilot.ai_copilot.core.router import router
-from gas_energy_copilot.ai_copilot.core.service_manager import initialize_expensive_services
 from gas_energy_copilot.ai_copilot.middleware.logging import LoggingMiddleware
-from gas_energy_copilot.ai_copilot.services.agent_service import AgentService
 
 log = structlog.stdlib.get_logger()
 
 
 def initialize_app() -> FastAPI:
-    """Initialize and configure FastAPI application."""
+    """Initialize and configure the FastAPI application."""
 
     config = app_config()
 
-    log.info("Starting application initialization...")
-
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        """Manage application lifespan with proper error handling."""
-        # Pre-initialize expensive services using the service manager
-        try:
-            log.info("Starting expensive services preloading...")
-            await initialize_expensive_services(config)
-            log.info("Expensive services preloading completed successfully")
-        except Exception as e:
-            log.error(f"Service preloading failed (will retry on first use): {e}")
-            log.exception("Full exception details for service preloading failure:")
-
-        log.info("Application initialization completed")
-
-        yield  # Application runs here
-
-        # Shutdown
-        log.info("Application shutdown starting...")
-        log.info("Application shutdown completed")
+        log.info("application_startup")
+        yield
+        log.info("application_shutdown")
 
     app = FastAPI(
         title=config.app_name,
@@ -61,11 +42,6 @@ def initialize_app() -> FastAPI:
         allow_headers=config.cors.allow_headers,
     )
 
-    agent = AgentService(config.agent, config).agent
-    a2a_server = A2AServer(agent=agent, host=config.host, port=config.port, serve_at_root=True)
-    a2a_app = a2a_server.to_fastapi_app()
-
     app.include_router(router)
-    app.mount("/", a2a_app)
 
     return app

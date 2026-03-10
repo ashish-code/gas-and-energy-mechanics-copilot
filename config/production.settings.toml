@@ -42,7 +42,6 @@ allow_headers = ["*"]
 
 [app.logging]
 log_level = "INFO"
-strands_log_level = "WARNING"
 log_json = true
 # Disable access logging for successful /health requests
 log_access_excluded_path_prefixes = ["/health"]

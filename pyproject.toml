@@ -10,7 +10,6 @@ dev = [
   "pytest-cov>=7.0.0",
   "pytest-integration>=0.2.3",
   "pytest-mock>=3.15.1",
-  "strands-agents-tools[a2a-client]>=0.2.16",
   "streamlit>=1.51.0",
   "uvicorn[standard]>=0.38.0"
 ]
@@ -23,7 +22,7 @@ dependencies = [
   "uvicorn[standard]",
   "structlog>=24.0.0",
   "asgi-correlation-id>=4.3.4",
-  "strands-agents[a2a]>=1.18.0",
+  "pipeline-safety-rag-crew",
   "faiss-cpu>=1.9.0",
   "boto3>=1.35.0",
   "pandas>=2.0.0",
@@ -102,6 +101,9 @@ unfixable = ["F841"]
 combine-as-imports = true
 force-sort-within-sections = true
 known-first-party = ["gas_energy_copilot"]
+
+[tool.uv.sources]
+pipeline-safety-rag-crew = { path = "crew", editable = true }
 
 [tool.uv]
 package = true

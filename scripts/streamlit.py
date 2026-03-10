@@ -1,8 +1,7 @@
 """
 Gas & Energy Mechanics Copilot — Streamlit Frontend
 
-Professional dark-themed chat interface connecting to the A2A server.
-Features: streaming responses, expandable source citations, sidebar controls.
+Chat interface that calls the CrewAI-backed REST API.
 
 To run:
     # Terminal 1 — start the backend
@@ -12,13 +11,9 @@ To run:
     just chat
 """
 
-import asyncio
 import logging
 import re
-from uuid import uuid4
 
-from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
-from a2a.types import Message, Part, Role, TextPart
 import httpx
 import streamlit as st
 
@@ -101,64 +96,8 @@ st.markdown("""
     border-radius: 10px;
     margin-bottom: 0.5rem;
 }
-
-/* ── Scrollable chat history ───────────────────────────────────────── */
-.chat-area { max-height: 65vh; overflow-y: auto; }
 </style>
 """, unsafe_allow_html=True)
-
-# ---------------------------------------------------------------------------
-# A2A helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_message(text: str) -> Message:
-    return Message(
-        kind="message",
-        role=Role.user,
-        parts=[Part(TextPart(kind="text", text=text))],
-        message_id=uuid4().hex,
-    )
-
-
-async def _stream(message: str, base_url: str, timeout: int):
-    """Yield text chunks from the A2A streaming endpoint."""
-    async with httpx.AsyncClient(timeout=timeout) as http:
-        resolver = A2ACardResolver(httpx_client=http, base_url=base_url)
-        agent_card = await resolver.get_agent_card()
-        client = ClientFactory(ClientConfig(httpx_client=http, streaming=True)).create(agent_card)
-        msg = _make_message(message)
-        async for event in client.send_message(msg):
-            if isinstance(event, tuple) and len(event) == 2:
-                task, _ = event
-                if task and hasattr(task, "status") and task.status and task.status.message:
-                    for part in task.status.message.parts or []:
-                        text = None
-                        if hasattr(part, "root") and hasattr(part.root, "text"):
-                            text = part.root.text
-                        elif hasattr(part, "text"):
-                            text = part.text
-                        if text:
-                            yield text
-            elif isinstance(event, Message):
-                for part in event.parts or []:
-                    text = None
-                    if hasattr(part, "root") and hasattr(part.root, "text"):
-                        text = part.root.text
-                    elif hasattr(part, "text"):
-                        text = part.text
-                    if text:
-                        yield text
-
-
-async def _test_connection(base_url: str) -> tuple[bool, str]:
-    try:
-        async with httpx.AsyncClient(timeout=10) as http:
-            card = await A2ACardResolver(httpx_client=http, base_url=base_url).get_agent_card()
-            return True, card.name
-    except Exception as e:
-        return False, str(e)
-
 
 # ---------------------------------------------------------------------------
 # Session state defaults
@@ -167,7 +106,7 @@ async def _test_connection(base_url: str) -> tuple[bool, str]:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "connected" not in st.session_state:
-    st.session_state.connected = None   # None = untested, True/False = result
+    st.session_state.connected = None
 if "conn_detail" not in st.session_state:
     st.session_state.conn_detail = ""
 
@@ -183,22 +122,24 @@ with st.sidebar:
     server_url = st.text_input("Backend URL", value=DEFAULT_BASE_URL, label_visibility="collapsed")
 
     if st.button("Test Connection", use_container_width=True):
-        with st.spinner("Connecting..."):
-            ok, detail = asyncio.run(_test_connection(server_url))
-        st.session_state.connected = ok
-        st.session_state.conn_detail = detail
+        try:
+            resp = httpx.get(f"{server_url}/health", timeout=10)
+            if resp.status_code == 200:
+                st.session_state.connected = True
+                st.session_state.conn_detail = "API server healthy"
+            else:
+                st.session_state.connected = False
+                st.session_state.conn_detail = f"HTTP {resp.status_code}"
+        except Exception as exc:
+            st.session_state.connected = False
+            st.session_state.conn_detail = str(exc)
 
     if st.session_state.connected is True:
         st.markdown(f'<p class="pill-ok">● Connected — {st.session_state.conn_detail}</p>',
                     unsafe_allow_html=True)
     elif st.session_state.connected is False:
-        st.markdown(f'<p class="pill-err">● Disconnected</p>', unsafe_allow_html=True)
+        st.markdown('<p class="pill-err">● Disconnected</p>', unsafe_allow_html=True)
         st.caption(st.session_state.conn_detail)
-
-    st.markdown("---")
-    st.markdown("### ⚙️ Retrieval")
-    top_k = st.slider("Results (top-k)", min_value=1, max_value=10, value=5,
-                      help="Number of document chunks retrieved per query")
 
     st.markdown("---")
     st.markdown("### 📚 Model Info")
@@ -275,26 +216,23 @@ if prompt := st.chat_input("Ask about pipeline safety, LNG operations, compresso
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        placeholder = st.empty()
-        full_response = ""
+        with st.spinner("Searching documentation and synthesising answer…"):
+            try:
+                resp = httpx.post(
+                    f"{server_url}/v1/chat",
+                    json={"question": prompt},
+                    timeout=DEFAULT_TIMEOUT,
+                )
+                resp.raise_for_status()
+                full_response = resp.json()["answer"]
+            except Exception as exc:
+                full_response = f"❌ Error: {exc}"
 
-        async def collect():
-            text = ""
-            async for chunk in _stream(prompt, server_url, DEFAULT_TIMEOUT):
-                text += chunk
-                placeholder.markdown(text + "▌")
-            return text
+        st.markdown(full_response)
 
-        try:
-            with st.spinner("Searching documentation…"):
-                full_response = asyncio.run(collect())
-            placeholder.markdown(full_response)
-        except Exception as exc:
-            full_response = f"❌ Error: {exc}"
-            placeholder.error(full_response)
-
-    # Parse source citations from response text (§ section refs and CFR mentions)
-    sources_found = list(dict.fromkeys(re.findall(r"(?:§\s*\d+\.\d+|49 CFR Part \d+)", full_response)))
+    sources_found = list(dict.fromkeys(
+        re.findall(r"(?:§\s*\d+\.\d+|49 CFR Part \d+)", full_response)
+    ))
 
     st.session_state.messages.append({
         "role": "assistant",
@@ -302,4 +240,3 @@ if prompt := st.chat_input("Ask about pipeline safety, LNG operations, compresso
         "sources": sources_found,
     })
     st.rerun()
-

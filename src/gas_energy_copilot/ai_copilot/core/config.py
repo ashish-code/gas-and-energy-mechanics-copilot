@@ -33,7 +33,6 @@ class LoggingSettings:
     """Logging-specific sub-settings"""
 
     log_level: str = "INFO"
-    strands_log_level: str = "WARNING"
     # Whether or not logs should be JSON-formatted strings
     log_json: bool = False
 

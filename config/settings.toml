@@ -42,7 +42,6 @@ allow_headers = ["*"]
 
 [app.logging]
 log_level = "INFO"
-strands_log_level = "WARNING"
 log_json = false
 log_access_excluded_path_prefixes = []
 log_access_exclude_success_only = true

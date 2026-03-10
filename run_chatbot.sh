@@ -18,11 +18,11 @@ export CONFIG_DIR="${CONFIG_DIR:-./config}"
 echo "AWS_PROFILE : $AWS_PROFILE"
 echo ""
 
-# Verify A2A server is running
+# Verify backend server is running
 if lsof -Pi :8080 -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo "A2A server is running on :8080"
+    echo "Backend server is running on :8080"
 else
-    echo "ERROR: A2A server is not running."
+    echo "ERROR: Backend server is not running."
     echo "Start it first with: ./run_server.sh"
     exit 1
 fi
