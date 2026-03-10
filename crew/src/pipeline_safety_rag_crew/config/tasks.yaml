@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Task definitions — Pipeline Safety RAG Crew
+# ─────────────────────────────────────────────────────────────────────────────
+
+retrieval_task:
+  description: >
+    Use the search_pipeline_safety_docs tool to retrieve the most relevant
+    regulatory passages for the following question:
+
+      "{question}"
+
+    Search strategy:
+      1. Issue a primary search using the question as-is.
+      2. If results are sparse or off-topic, issue one or two follow-up
+         searches with reformulated keywords (e.g. specific CFR section
+         numbers, technical terms surfaced in the initial results).
+      3. Collect the top-5 passages across all searches.
+
+    Return ALL retrieved passages verbatim, each preceded by its source
+    citation (filename and page number).
+  expected_output: >
+    A numbered list of up to 5 regulatory text passages with source
+    citations in the format:
+      [N] <filename> – page <X>  (score: Y.YYY)
+      <verbatim passage text>
+    Followed by a one-sentence summary of the most relevant finding.
+  agent: retrieval_specialist
+
+synthesis_task:
+  description: >
+    Using ONLY the regulatory passages retrieved in the previous task,
+    write a clear and accurate answer to:
+
+      "{question}"
+
+    Requirements:
+      - Open with a direct answer (2–3 sentences).
+      - Quote exact regulatory language where it matters.
+      - Cite every claim with its 49 CFR section and source document.
+      - If the retrieved passages do not fully answer the question, state
+        clearly what is missing and suggest which CFR section to consult.
+      - Keep the answer concise (300–500 words) but complete.
+  expected_output: >
+    A well-structured response containing:
+      1. Direct answer paragraph (2–3 sentences).
+      2. Detailed explanation with inline §-section citations.
+      3. A "Sources" section listing every document cited.
+  agent: regulatory_analyst
+  context:
+    - retrieval_task
+  output_file: output/answer.md
