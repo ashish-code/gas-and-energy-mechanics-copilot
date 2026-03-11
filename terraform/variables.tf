@@ -33,3 +33,10 @@ variable "memory" {
   type        = number
   default     = 2048  # 2 GB
 }
+
+variable "conversations_table_name" {
+  description = "DynamoDB table name for multi-turn conversation memory (services/memory.py)"
+  type        = string
+  default     = "gas-energy-copilot-conversations"
+  # Must match [app.memory] table_name in config/production.settings.toml
+}

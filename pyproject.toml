@@ -10,23 +10,60 @@ dev = [
   "pytest-cov>=7.0.0",
   "pytest-integration>=0.2.3",
   "pytest-mock>=3.15.1",
+  "pytest-timeout>=2.3.0",    # --timeout flag for slow eval tests
+  "pytest-asyncio>=0.23.0",   # async test support for SSE endpoint tests
   "streamlit>=1.51.0",
   "uvicorn[standard]>=0.38.0"
 ]
 
 [project]
 dependencies = [
-  "fastapi[standard]",
-  "typed-settings>=25.0.0,<26.0.0",
-  "typed-settings[attrs]",
-  "uvicorn[standard]",
-  "structlog>=24.0.0",
-  "asgi-correlation-id>=4.3.4",
-  "pipeline-safety-rag-crew",
-  "faiss-cpu>=1.9.0",
-  "boto3>=1.35.0",
-  "pandas>=2.0.0",
-  "pyarrow>=18.0.0",
+  # ── Core API ────────────────────────────────────────────────────────────
+  "fastapi[standard]",          # REST API framework with OpenAPI spec generation
+  "typed-settings>=25.0.0,<26.0.0",  # Type-safe TOML config loading
+  "typed-settings[attrs]",      # attrs backend for typed-settings
+  "uvicorn[standard]",          # ASGI server (includes uvloop, httptools for speed)
+  "structlog>=24.0.0",          # Structured logging (JSON for CloudWatch)
+  "asgi-correlation-id>=4.3.4", # X-Correlation-ID header middleware
+
+  # ── Multi-agent Crew ────────────────────────────────────────────────────
+  "pipeline-safety-rag-crew",   # Local editable package (crew/ directory)
+  "faiss-cpu>=1.9.0",           # FAISS vector similarity search (CPU build)
+  "boto3>=1.35.0",              # AWS SDK: Bedrock, DynamoDB, ECR, App Runner
+  "pandas>=2.0.0",              # DataFrame operations for chunk processing
+  "pyarrow>=18.0.0",            # Parquet I/O for chunks.parquet storage
+
+  # ── Tracing & Observability ─────────────────────────────────────────────
+  # langfuse: LLM observability with trace/span hierarchy and quality scores.
+  # Integrates via LiteLLM callbacks (zero CrewAI code changes needed).
+  # Alternative: Arize Phoenix (better for embedding drift monitoring).
+  "langfuse>=2.0.0",
+
+  # ── Streaming ───────────────────────────────────────────────────────────
+  # sse-starlette: Server-Sent Events for FastAPI.
+  # Alternative: asyncio.Queue + Starlette StreamingResponse (more boilerplate).
+  "sse-starlette>=2.0.0",
+
+  # ── Evaluation (optional at runtime — used by eval endpoints + tests) ───
+  # deepeval: LLM evaluation framework with pytest integration.
+  # Use for CI/CD quality gates (see tests/test_eval_metrics.py).
+  # Alternative: promptfoo (CLI-based), RAGAS metrics (less pytest integration).
+  "deepeval>=1.0.0",
+
+  # trulens-eval: Live RAG Triad monitoring with dashboard.
+  # Use for production quality monitoring (see evaluation/trulens_setup.py).
+  # Alternative: TruLens is unique — no direct equivalent for live RAG monitoring.
+  "trulens-eval>=1.0.0",
+
+  # ragas: Synthetic QA dataset generation from document corpus.
+  # Also provides RAGAS metrics (context recall, faithfulness, etc.).
+  # Use for dataset generation (scripts/generate_eval_dataset.py).
+  "ragas>=0.1.0",
+
+  # langchain-core: Required by RAGAS for Document format.
+  # langchain-aws: Bedrock integration for RAGAS (LLM + embeddings backend).
+  "langchain-core>=0.1.0",
+  "langchain-aws>=0.1.0",
 ]
 name = "gas-and-energy-mechanics-copilot"
 description = "RAG-powered AI chatbot for gas & energy engineering documentation, built on Amazon Bedrock Nova Lite and FAISS."

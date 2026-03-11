@@ -1,55 +1,124 @@
+# Gas & Energy Mechanics Copilot — Development Configuration
+#
+# This file is loaded by config.py via typed_settings. All values here are
+# development defaults. Production overrides live in production.settings.toml
+# which is baked into the Docker image (see Dockerfile).
+#
+# Structure: every [app.<section>] block maps to a settings class in config.py.
+# Adding a new field: add it to both the settings class AND this file with a default.
+
 [app]
-app_name = "AI Copilot"
-service_name = "ai-copilot"
-port = 8080
-host = "0.0.0.0"
+app_name    = "Gas & Energy Mechanics Copilot"
+service_name = "gas-energy-copilot"
+port        = 8080
+host        = "0.0.0.0"
 environment = "development"
-debug = true
+debug       = true
 
+# ── LLM Agent ─────────────────────────────────────────────────────────────────
+# bedrock_model_id: used for direct boto3 calls (embeddings, non-CrewAI flows).
+# The CrewAI LLM is controlled by the MODEL environment variable, not this field.
+# See crew/src/pipeline_safety_rag_crew/config/agents.yaml for CrewAI model config.
 [app.agent]
-name = "AI Copilot"
+name            = "Pipeline Safety Copilot"
 bedrock_model_id = "openai.gpt-oss-120b-1:0"
-description = "An AI Agent capable of assisting with problems that can be solved by referencing engineering documentation"
+description     = """
+An AI multi-agent copilot specialising in PHMSA pipeline safety regulations
+(49 CFR Parts 192, 193, 195). Answers questions with regulatory citations.
+"""
 system_prompt = """
-You are a knowledgeable assistant helping with engineering documentation.
-You are providing information about engine troubleshooting, configuration parameters, and error codes.
-You should use a conversational style and ask clarifying questions if needed.
+You are a knowledgeable pipeline safety assistant. You help engineers, operators,
+and compliance officers understand PHMSA regulations (49 CFR Parts 192, 193, 195).
 
-You have access to a comprehensive documentation database through the search_documentation tool.
-
-When users ask questions:
-1. ALWAYS use the search_documentation tool first to find relevant information from the documentation
-2. Base your answers primarily on the retrieved documentation
-3. If the documentation doesn't contain relevant information, acknowledge this and provide general guidance
-4. Cite the sources from the retrieved documentation (filename and page number) when possible
-5. Be conversational and friendly - ask clarifying questions to better understand the user's needs
-6. If you need more specific information, try refining your search query with different keywords
-
-Your goal is to provide accurate, helpful, and well-sourced answers based on the engineering documentation.
+Always cite the specific CFR section (e.g., § 192.505) when referencing regulations.
+If the documentation does not contain a clear answer, say so — never speculate.
 """
 
+# ── HTTP API ───────────────────────────────────────────────────────────────────
+# serve_docs_enabled: enable Swagger UI at /docs (disable in production)
+# prefix: URL prefix for all versioned routes (GET /api/v1/chat etc.)
 [app.api]
 serve_docs_enabled = true
-root_message = "Hello from AI Copilot!"
-prefix = "/api"
-api_version = "v1"
+root_message       = "Gas & Energy Mechanics Copilot API — v1"
+prefix             = ""
+api_version        = "v1"
 
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# origins: In production, restrict to your actual frontend domain.
+# allow_methods: POST is required for /v1/chat; GET for health checks.
 [app.cors]
-origins = ["http://localhost:8080"]
-allow_credentials = false
-allow_methods = ["GET", "OPTIONS"]
-allow_headers = ["*"]
+origins             = ["http://localhost:8080", "http://localhost:8501"]
+allow_credentials   = false
+allow_methods       = ["GET", "POST", "OPTIONS"]
+allow_headers       = ["*"]
 
+# ── Logging ───────────────────────────────────────────────────────────────────
+# log_json = false → human-readable output for local dev
+# log_json = true  → JSON lines for CloudWatch / Datadog (set in production.settings.toml)
 [app.logging]
-log_level = "INFO"
-log_json = false
-log_access_excluded_path_prefixes = []
-log_access_exclude_success_only = true
+log_level                          = "INFO"
+log_json                           = false
+log_access_excluded_path_prefixes  = ["/health"]
+log_access_exclude_success_only    = true
 
+# ── RAG Index ─────────────────────────────────────────────────────────────────
+# index_dir: relative to CWD (the project root when running with `just dev`).
+# top_k: number of passages to retrieve per query.
+# similarity_threshold: 0.0 = return all results regardless of cosine score.
+#   Raise to 0.3 if you see too many irrelevant passages in answers.
+# embedding_model: MUST match the model used in scripts/build_index.py.
 [app.rag]
-enabled = true
-index_dir = "data/rag_index"
-top_k = 5
-embedding_model = "amazon.titan-embed-text-v2:0"
-embedding_region = "us-east-1"
+enabled             = true
+index_dir           = "data/rag_index"
+top_k               = 5
+embedding_model     = "amazon.titan-embed-text-v2:0"
+embedding_region    = "us-east-1"
 similarity_threshold = 0.0
+
+# ── Conversation Memory (DynamoDB) ────────────────────────────────────────────
+# enabled: set false to run stateless (each query independent, no history loaded).
+# table_name: DynamoDB table provisioned by terraform/main.tf.
+# max_turns: max prior turns loaded as context per request (controls token budget).
+# ttl_days: DynamoDB auto-expires items after this many days of inactivity.
+#
+# For local development without AWS credentials, set enabled = false.
+# The system gracefully degrades to stateless mode.
+[app.memory]
+enabled    = false
+table_name = "gas-energy-copilot-conversations"
+region     = "us-east-1"
+max_turns  = 20
+ttl_days   = 30
+
+# ── Langfuse Tracing ──────────────────────────────────────────────────────────
+# enabled: set true and provide keys to activate LLM call tracing.
+# public_key / secret_key: get from https://cloud.langfuse.com → Project Settings.
+# WARNING: Never commit secret_key. Use environment variable LANGFUSE_SECRET_KEY
+#   and override this setting via env: export LANGFUSE_SECRET_KEY=lf-sk-...
+#
+# With enabled=false, all tracing calls are no-ops with zero overhead.
+[app.langfuse]
+enabled      = false
+public_key   = ""
+secret_key   = ""
+host         = "https://cloud.langfuse.com"
+project_name = "gas-energy-copilot"
+flush_at     = 15
+flush_interval = 0.5
+
+# ── Evaluation (TruLens + DeepEval) ───────────────────────────────────────────
+# enabled: set true to record TruLens RAG triad scores on each /v1/chat call.
+# trulens_db_url: SQLite path for local dev; PostgreSQL URI for prod.
+# Thresholds are used by tests/test_eval_metrics.py as CI gate values.
+#
+# Run DeepEval tests:   uv run pytest tests/test_eval_metrics.py -m eval
+# Run TruLens dashboard: uv run python -m trulens.dashboard --port 8502
+[app.eval]
+enabled                             = false
+trulens_db_url                      = "sqlite:///evaluation/trulens.db"
+deepeval_threshold_faithfulness     = 0.7
+deepeval_threshold_relevancy        = 0.7
+deepeval_threshold_hallucination    = 0.3
+deepeval_threshold_precision        = 0.6
+deepeval_threshold_recall           = 0.6
+eval_sample_size                    = 30

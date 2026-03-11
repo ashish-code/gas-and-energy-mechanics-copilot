@@ -1,6 +1,74 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Task definitions — Pipeline Safety RAG Crew
+#
+# TASK EXECUTION ORDER:
+#   Simple pipeline (PipelineSafetyRAGCrew):
+#     retrieval_task → synthesis_task
+#
+#   Full pipeline (FullPipelineCrew):
+#     routing_task → retrieval_task → synthesis_task → judging_task
+#
+# HOW CREWAI READS THIS FILE:
+#   The @CrewBase decorator auto-loads this file. Each top-level key maps
+#   to a method decorated with @task in crew.py. The task method reads
+#   self.tasks_config["task_name"] and passes it to the Task() constructor.
+#
+# CONTEXT PASSING:
+#   The `context` key (list of task names) tells CrewAI to inject the output
+#   of those tasks into the current task's description at runtime.
+#   This is how retrieved passages flow from retrieval_task to synthesis_task,
+#   and how the full answer flows from synthesis_task to judging_task.
+#
+# INPUT VARIABLES:
+#   {question} — always available (passed via crew.kickoff(inputs={"question": ...}))
+#   {session_id} — available in full pipeline runs that include memory
+#   {conversation_history} — pre-loaded history string injected via inputs dict
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+# ── Task 1: Route (NEW) ───────────────────────────────────────────────────────
+# Classifies the query and generates targeted search terms.
+# Output is used by retrieval_task to improve search precision.
+
+routing_task:
+  description: >
+    Analyse this user question and classify it for optimal retrieval:
+
+      "{question}"
+
+    Classification categories:
+      - regulatory_lookup:   User wants specific CFR section text or definition.
+                             Example: "What does §192.3 define as 'transmission line'?"
+      - compliance_check:    User asks whether an operator must comply with a rule.
+                             Example: "Must a Class 3 pipeline be hydrostatically tested?"
+      - incident_analysis:   User asks about accidents, violations, or enforcement.
+                             Example: "What PHMSA violations occurred on the X pipeline?"
+      - general_engineering: User asks for background engineering concepts.
+                             Example: "How does cathodic protection work?"
+
+    Also determine:
+      - 3–5 targeted search terms (keywords, CFR section numbers, technical terms)
+        that will help the retrieval specialist find the most relevant passages.
+      - Whether the query likely needs real-time web search (recent enforcement
+        actions, new final rules) that the FAISS index may not have.
+
+    Return ONLY a valid JSON object matching this exact schema — no prose:
+      {
+        "query_type": "<one of the four categories above>",
+        "confidence": <float 0.0–1.0>,
+        "reasoning": "<1–2 sentences explaining the classification>",
+        "recommended_search_terms": ["<term1>", "<term2>", ...],
+        "requires_web_search": <true | false>
+      }
+  expected_output: >
+    A single valid JSON object with keys: query_type, confidence, reasoning,
+    recommended_search_terms (list of strings), requires_web_search (boolean).
+    No markdown fences, no explanation text — raw JSON only.
+  agent: router_agent
+
+
+# ── Task 2: Retrieve ──────────────────────────────────────────────────────────
+# Searches the FAISS index and returns top-5 regulatory passages verbatim.
 
 retrieval_task:
   description: >
@@ -11,20 +79,31 @@ retrieval_task:
 
     Search strategy:
       1. Issue a primary search using the question as-is.
-      2. If results are sparse or off-topic, issue one or two follow-up
-         searches with reformulated keywords (e.g. specific CFR section
-         numbers, technical terms surfaced in the initial results).
-      3. Collect the top-5 passages across all searches.
+      2. If a routing decision was provided in the context, ALSO search using
+         each of the recommended_search_terms (one search per term).
+         This dramatically improves recall for targeted regulatory queries.
+      3. If results are sparse or off-topic, reformulate with technical synonyms
+         (e.g., "operating pressure" instead of "MAOP", "§192.611" instead of
+         "pressure reduction").
+      4. Collect the top-5 most relevant passages across all searches.
 
-    Return ALL retrieved passages verbatim, each preceded by its source
-    citation (filename and page number).
+    If conversation history is available in the context:
+      Review it briefly to understand whether the current question is a follow-up.
+      If so, include relevant terms from prior turns in your search.
+
+    Return ALL retrieved passages verbatim — do not summarise or paraphrase.
+    Each passage must include its source citation.
   expected_output: >
-    A numbered list of up to 5 regulatory text passages with source
-    citations in the format:
-      [N] <filename> – page <X>  (score: Y.YYY)
-      <verbatim passage text>
+    A numbered list of up to 5 regulatory text passages in this format:
+      [N] <source_label> — §<section> (score: Y.YYY)
+      <verbatim passage text, exactly as retrieved>
+
     Followed by a one-sentence summary of the most relevant finding.
   agent: retrieval_specialist
+
+
+# ── Task 3: Synthesise ────────────────────────────────────────────────────────
+# Produces a cited, plain-language answer from the retrieved passages.
 
 synthesis_task:
   description: >
@@ -33,19 +112,75 @@ synthesis_task:
 
       "{question}"
 
-    Requirements:
-      - Open with a direct answer (2–3 sentences).
-      - Quote exact regulatory language where it matters.
-      - Cite every claim with its 49 CFR section and source document.
-      - If the retrieved passages do not fully answer the question, state
-        clearly what is missing and suggest which CFR section to consult.
+    If conversation history is available in the context, acknowledge relevant
+    prior turns naturally (e.g., "Building on the §192.505 requirement we
+    discussed earlier..."). Do NOT repeat information already given.
+
+    Requirements for the answer:
+      - Open with a direct answer (2–3 sentences) using plain language.
+      - Quote exact regulatory language where the precise wording matters.
+        Wrap quotes in " " and follow with the §section citation.
+      - Cite every claim with its 49 CFR section (e.g., "per §192.505(b)").
+      - If the retrieved passages do NOT fully answer the question, explicitly
+        state what information is missing and which CFR section to consult.
       - Keep the answer concise (300–500 words) but complete.
+      - End with a "Sources" section listing every source document cited.
+      - Do NOT fabricate CFR section numbers or regulatory text.
   expected_output: >
-    A well-structured response containing:
+    A well-structured regulatory guidance response containing:
       1. Direct answer paragraph (2–3 sentences).
       2. Detailed explanation with inline §-section citations.
-      3. A "Sources" section listing every document cited.
+      3. Any gaps or caveats if the retrieved text is incomplete.
+      4. Sources section: list of cited source documents and CFR sections.
   agent: regulatory_analyst
   context:
     - retrieval_task
   output_file: output/answer.md
+
+
+# ── Task 4: Judge (NEW) ───────────────────────────────────────────────────────
+# Verifies the synthesised answer for hallucinations and citation accuracy.
+
+judging_task:
+  description: >
+    You are reviewing the following synthesised answer for factual accuracy.
+    Your job is to verify every claim against the retrieved passages in the context.
+
+    Original question:
+      "{question}"
+
+    Review criteria — check each of these:
+      1. CITATION ACCURACY: Does every cited CFR section (§X.XX) appear in the
+         retrieved passages? If a section is cited but not in the context,
+         it is a hallucination.
+      2. CLAIM SUPPORT: Is every factual claim in the answer traceable to a
+         specific passage in the retrieved context? Quote the unsupported claim
+         and note which part of the context contradicts or lacks it.
+      3. COMPLETENESS: Does the answer address the question? If the retrieved
+         context is insufficient to answer, is that gap acknowledged?
+      4. CONTRADICTION: Does any sentence in the answer contradict the retrieved
+         passages? This is the most dangerous type of hallucination.
+
+    Verdict rules:
+      - "approved":        All claims are supported. Minor wording issues are OK.
+      - "needs_revision":  1–2 unsupported claims. Provide a corrected answer.
+      - "rejected":        3+ hallucinations or any fabricated CFR citation.
+                          The answer should NOT be shown to the user.
+
+    Return ONLY a valid JSON object matching this schema — no prose:
+      {
+        "verdict": "<approved | needs_revision | rejected>",
+        "confidence": <float 0.0–1.0>,
+        "issues": ["<issue description>", ...],
+        "revised_answer": "<corrected answer text, or null if approved/rejected>",
+        "citations_verified": ["§X.XX", ...],
+        "hallucinations_detected": ["<hallucinated claim>", ...]
+      }
+  expected_output: >
+    A single valid JSON object with keys: verdict, confidence, issues (list),
+    revised_answer (string or null), citations_verified (list), hallucinations_detected (list).
+    Raw JSON only — no markdown fences, no explanation text.
+  agent: judge_agent
+  context:
+    - retrieval_task
+    - synthesis_task

@@ -184,6 +184,9 @@ local.toml
 
 # RAG data (FAISS index and document chunks)
 data/
+# Exception: commit the gold QA benchmark dataset (curated, not generated)
+!evaluation/data/
+!evaluation/data/gold_qa.json
 
 # Terraform — local state and provider cache (lock file IS committed)
 terraform/.terraform/

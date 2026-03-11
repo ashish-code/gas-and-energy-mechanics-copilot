@@ -21,6 +21,12 @@ def initialize_app() -> FastAPI:
     async def lifespan(app: FastAPI):
         log.info("application_startup")
         yield
+        # Flush any pending Langfuse traces before shutdown.
+        # Langfuse sends events in a background thread; without this flush,
+        # traces created in the last few seconds before process exit may be lost.
+        # This is a no-op if Langfuse tracing is disabled.
+        from gas_energy_copilot.ai_copilot.services.tracing import flush_traces
+        flush_traces()
         log.info("application_shutdown")
 
     app = FastAPI(
