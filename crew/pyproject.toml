@@ -11,6 +11,10 @@ dependencies = [
     "pandas>=2.0.0",
     "pyarrow>=18.0.0",
     "numpy>=1.26.0",
+    # Web search tool — Tavily is purpose-built for LLM RAG consumption:
+    # clean structured results, relevance scoring, regulatory domain filtering.
+    # Alternative: SerpAPI (raw Google results), Bing Search API (less structured)
+    "tavily-python>=0.3.0",
 ]
 
 [project.scripts]

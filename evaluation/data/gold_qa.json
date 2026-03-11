@@ -1,0 +1,101 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "created": "2026-03-10",
+    "description": "Hand-curated gold QA pairs for pipeline safety regulatory evaluation. These 10 expert-verified pairs serve as the ground-truth benchmark for measuring retrieval recall and answer faithfulness. Each pair was authored by a domain expert against the indexed 49 CFR text.",
+    "source_regulation": "49 CFR Parts 192, 193, 195",
+    "usage": "Bootstrap benchmark for RAGAS and DeepEval evaluations. Load with evaluation/dataset_generator.py load() method."
+  },
+  "qa_pairs": [
+    {
+      "id": "gold-001",
+      "question": "What is the maximum allowable operating pressure (MAOP) formula for steel pipelines under 49 CFR 192.619?",
+      "answer": "Under 49 CFR §192.619, the MAOP for steel pipelines must not exceed the lowest of four values: (1) the design pressure of the weakest element in the segment; (2) the pressure obtained by dividing the pressure used in the strength test by the applicable factor (1.1 for Class 1 or Class 2 locations, 1.25 for Class 3 or Class 4 locations); (3) the pressure determined by the design formula in §192.105; or (4) for pipelines converted to natural gas service, 80% of the pressure to which the pipeline was previously pressure-tested.",
+      "context_cfr_sections": ["§192.619", "§192.105"],
+      "query_type": "regulatory_lookup",
+      "difficulty": "medium",
+      "requires_cross_section": false
+    },
+    {
+      "id": "gold-002",
+      "question": "What are the pressure testing requirements for steel pipelines in Class 3 locations under 49 CFR Part 192?",
+      "answer": "Under 49 CFR §192.505, steel pipelines in Class 3 locations must be strength-tested to a pressure at least 1.25 times the MAOP. The test must be conducted with water (hydrostatic test) or with air or inert gas if a leak test is conducted as well. The test must last at least 8 hours. A leak test must also be performed at or above MAOP. Pressure recording during the test must be continuous or point readings taken at intervals not greater than 30 minutes.",
+      "context_cfr_sections": ["§192.505", "§192.503"],
+      "query_type": "regulatory_lookup",
+      "difficulty": "medium",
+      "requires_cross_section": true
+    },
+    {
+      "id": "gold-003",
+      "question": "Under 49 CFR Part 192, what are the qualification requirements for operators who perform welding on natural gas pipelines?",
+      "answer": "Under 49 CFR §192.227, each operator must qualify welders and welding operators under API Standard 1104 or Section IX of the ASME Boiler and Pressure Vessel Code. A welder may not perform welding unless they have been qualified for the specific procedure to be used. An operator must maintain records of each qualified welder, including the date and results of qualification tests. A welder whose work has been rejected must be requalified before performing further welding.",
+      "context_cfr_sections": ["§192.227", "§192.229"],
+      "query_type": "regulatory_lookup",
+      "difficulty": "medium",
+      "requires_cross_section": false
+    },
+    {
+      "id": "gold-004",
+      "question": "What are the cathodic protection requirements for buried steel pipelines under 49 CFR §192.455?",
+      "answer": "Under 49 CFR §192.455, each buried or submerged steel pipeline installed after July 31, 1971, must be cathodically protected. The cathodic protection system must meet the criteria in appendix D of Part 192, which requires: (1) a structure-to-soil potential of at least -0.85 V with respect to a saturated copper/copper sulfate reference electrode; or (2) a negative polarized potential of at least -0.85 V; or (3) a minimum of 100 mV of cathodic polarization. Existing pipelines installed before July 31, 1971, must be cathodically protected in high-consequence areas.",
+      "context_cfr_sections": ["§192.455", "§192.457", "Appendix D to Part 192"],
+      "query_type": "compliance_check",
+      "difficulty": "hard",
+      "requires_cross_section": true
+    },
+    {
+      "id": "gold-005",
+      "question": "What is a 'high consequence area' (HCA) for gas transmission pipelines and how is it defined in 49 CFR Part 192?",
+      "answer": "Under 49 CFR §192.903, a high consequence area (HCA) for gas transmission pipelines is defined as: (1) a Class 3 or Class 4 location; (2) any area within a Class 1 or Class 2 location where the potential impact radius is greater than 660 feet and where there are 20 or more buildings intended for human occupancy within any potential impact circle; or (3) any area within a Class 1 or Class 2 location where there is a designated site (school, hospital, etc.) within the potential impact circle. The potential impact radius is calculated using the formula: r = 0.69 * (square root of MAOP * D^2), where MAOP is in psia and D is the outside diameter in inches.",
+      "context_cfr_sections": ["§192.903", "§192.905"],
+      "query_type": "regulatory_lookup",
+      "difficulty": "hard",
+      "requires_cross_section": true
+    },
+    {
+      "id": "gold-006",
+      "question": "Can a natural gas pipeline operator use composite materials for repair sleeves under 49 CFR Part 192?",
+      "answer": "Under 49 CFR §192.150, operators may use composite materials for repairs if the materials meet the performance requirements in that section. Composite sleeves may be used to repair corrosion defects in pipelines operating below 40% SMYS, provided they are: (1) designed and tested according to a recognized standard; (2) installed per manufacturer specifications; (3) inspected after installation for defects; and (4) the operator's O&M procedures address their use. The repair must be documented in the pipeline records. Full-encirclement pressure-containing sleeves are required for cracks.",
+      "context_cfr_sections": ["§192.150", "§192.717"],
+      "query_type": "compliance_check",
+      "difficulty": "hard",
+      "requires_cross_section": true
+    },
+    {
+      "id": "gold-007",
+      "question": "What are the emergency response plan requirements for natural gas pipeline operators under 49 CFR §192.615?",
+      "answer": "Under 49 CFR §192.615, each operator must establish emergency procedures that include: (1) prompt and effective response to emergencies; (2) receiving, identifying, and classifying emergency calls; (3) establishing and maintaining communications with appropriate fire, police, and public officials; (4) emergency shutdown and pressure reduction; (5) making safe any gas facility; (6) controlling gas leakage; and (7) performing outside patrol, if appropriate. The plan must be reviewed and updated whenever it is determined a change is needed, and the operator must conduct training and drills to ensure employees can carry out procedures.",
+      "context_cfr_sections": ["§192.615", "§192.613"],
+      "query_type": "regulatory_lookup",
+      "difficulty": "easy",
+      "requires_cross_section": false
+    },
+    {
+      "id": "gold-008",
+      "question": "What are the class location definitions in 49 CFR Part 192 and how do they affect pipeline design?",
+      "answer": "Under 49 CFR §192.5, class locations are determined by counting buildings intended for human occupancy within a one-mile segment (one-quarter mile wide). Class 1 has 10 or fewer buildings; Class 2 has 11 to 45 buildings; Class 3 has 46 or more buildings or is within 100 yards of a specified structure; Class 4 has buildings with 4 or more stories. Class location affects: design pressure factors (§192.111), pressure test requirements (§192.505–192.507), and integrity management requirements. Higher class locations require lower design factors (0.40 for Class 4 vs 0.72 for Class 1) and more stringent testing.",
+      "context_cfr_sections": ["§192.5", "§192.111", "§192.505"],
+      "query_type": "compliance_check",
+      "difficulty": "medium",
+      "requires_cross_section": true
+    },
+    {
+      "id": "gold-009",
+      "question": "Under 49 CFR Part 192, what are the requirements for plastic pipe used in gas distribution systems?",
+      "answer": "Under 49 CFR §192.63 and §192.121–192.125, plastic pipe used in gas distribution must: (1) meet ASTM or other recognized standards for materials; (2) be marked with manufacturer, SDR, material designation, and applicable standard; (3) not be used in above-ground installations exposed to UV radiation unless specifically protected; (4) be installed at least 12 inches below ground in areas subject to freezing; (5) not be threaded; and (6) be joined by heat fusion, solvent cement (for PVC only), or mechanical coupling, following manufacturer instructions. Plastic pipe may not be used at pressures above the maximum listed in §192.121.",
+      "context_cfr_sections": ["§192.63", "§192.121", "§192.123", "§192.273"],
+      "query_type": "regulatory_lookup",
+      "difficulty": "medium",
+      "requires_cross_section": true
+    },
+    {
+      "id": "gold-010",
+      "question": "What does 49 CFR §192.619 require regarding pressure records for natural gas transmission pipelines?",
+      "answer": "Under 49 CFR §192.619(c), each operator must maintain records for each pipeline segment that document the MAOP established for that segment. These records must show how the MAOP was determined and include: (1) the design pressure calculation or actual test pressure divided by the applicable safety factor; (2) the date the MAOP was established or revised; and (3) any operating pressure limitations. The records must be retained for the life of the pipeline and made available to PHMSA inspectors upon request. If an operator cannot establish a prior pressure test, the MAOP must be limited to the lowest known operating pressure.",
+      "context_cfr_sections": ["§192.619"],
+      "query_type": "regulatory_lookup",
+      "difficulty": "medium",
+      "requires_cross_section": false
+    }
+  ]
+}

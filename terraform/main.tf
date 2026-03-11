@@ -102,7 +102,62 @@ resource "aws_iam_role_policy" "task_policy" {
         ]
         Resource = "arn:aws:logs:${var.aws_region}:${local.account_id}:log-group:/aws/apprunner/*"
       },
+      # DynamoDB permissions for conversation memory (services/memory.py)
+      # PAY_PER_REQUEST billing — no capacity planning needed.
+      # Scope to the specific table ARN for least-privilege access.
+      {
+        Sid    = "DynamoDBConversationMemory"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",       # used by get_history (not needed; we use Query)
+          "dynamodb:PutItem",       # used by add_turn
+          "dynamodb:Query",         # used by get_history (primary operation)
+          "dynamodb:DeleteItem",    # used by clear_session (item-by-item delete)
+          "dynamodb:BatchWriteItem" # used by clear_session (batch delete via batch_writer)
+        ]
+        Resource = aws_dynamodb_table.conversations.arn
+      },
     ]
+  })
+}
+
+# ---------------------------------------------------------------------------
+# DynamoDB — conversation memory for multi-turn chat sessions
+# ---------------------------------------------------------------------------
+# WHY DynamoDB for chat memory:
+#   - Serverless: no connection pooling, no EC2 to manage, auto-scales to 0.
+#   - PAY_PER_REQUEST: perfect for chat workloads with variable traffic.
+#   - Native TTL: items auto-expire after ttl_days (cost-control, no cron job needed).
+#   - Already in our AWS account; no new service to enable.
+
+resource "aws_dynamodb_table" "conversations" {
+  name         = var.conversations_table_name
+  billing_mode = "PAY_PER_REQUEST"  # No capacity planning — scales automatically.
+  hash_key     = "session_id"       # UUID per chat session (e.g., "550e8400-e29b-...")
+  range_key    = "turn_id"          # Zero-padded integer (e.g., "0001", "0042")
+
+  # DynamoDB only supports defining attributes that are used as keys.
+  # Other attributes (role, content, timestamp, metadata) are defined at write time.
+  attribute {
+    name = "session_id"
+    type = "S"  # String
+  }
+
+  attribute {
+    name = "turn_id"
+    type = "S"  # String (zero-padded so lexicographic = chronological sort)
+  }
+
+  # TTL: DynamoDB automatically deletes items where ttl < current Unix timestamp.
+  # The memory manager sets ttl = now + (ttl_days * 86400) on each PutItem call.
+  # This expires old conversations without a cron job or Lambda.
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+
+  tags = merge(local.tags, {
+    Purpose = "Conversation memory for multi-turn chat sessions"
   })
 }
 
