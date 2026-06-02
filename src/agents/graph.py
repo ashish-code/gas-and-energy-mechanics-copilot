@@ -83,3 +83,14 @@ class Copilot:
             return self.graph.invoke({"query": query})  # type: ignore[return-value]
         finally:
             clear_context()
+
+    def stream(self, query: str):  # type: ignore[no-untyped-def]
+        """Yield (node_name, state_update) as each node completes (for the streaming UI)."""
+        cid = bind_correlation_id()
+        log.info("copilot.ask", query=query[:120], correlation_id=cid)
+        try:
+            for step in self.graph.stream({"query": query}):
+                for node, update in step.items():
+                    yield node, update
+        finally:
+            clear_context()
