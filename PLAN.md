@@ -132,7 +132,8 @@ if any one source exceeds a 2h block, it gets dropped and noted here + in README
 | R5 | RAGAS `TestsetGenerator` + faithfulness run latency/cost on Bedrock for 40+10 questions. | Medium | Run once, cache to `data/golden_set/`. No tuning; accept default-tier scores. |
 | R6 | Streamlit Cloud 1GB RAM + cold start. | Low | Reranker is remote (Bedrock), not local; only rank-bm25 (~20MB) + boto3 in memory. `warm_up_demo.py` pre-warms. |
 | R7 | Supabase free-tier pgvector HNSW build on ~2–3K rows. | Low | Trivial at this scale; `m=16, ef_construction=64` per spec. |
-| R8 | Contextual-Retrieval blurb step = 1 Haiku call per chunk (~2–3K calls). | Medium (cost/time) | Batch + backoff; this is the single biggest ingestion-time cost. Run once, persist `contextualized_text` to DB. |
+| R8 | Contextual-Retrieval blurb step = 1 Haiku call per chunk (~1.7K calls). | Medium (cost/time) | Backoff; persist `contextualized_text` to DB; run once. |
+| R9 | **This Bedrock account (`vscode-user`, 414994224379) is rate-limited to ~1 req/s.** Titan ≈1.5s/call sequentially; concurrency >2 triggers `ThrottlingException` storms (measured at M2). | Certain | Concurrency pinned to **2** everywhere (embedder, contextualizer, query-embed). Implications: **full index build ≈ 60–90 min one-time background job** (embeddings persist, so paid once); **per-query latency ≈ 20–40 s** (5 query-form embeds + LLM calls), consistent with the spec's 30–60 s cold-start budget. **Mitigation option for the user:** request a Bedrock on-demand quota increase for Titan/Claude InvokeModel, or run the build from an account/region with higher TPS. Not a blocker — just slow. |
 
 ---
 
