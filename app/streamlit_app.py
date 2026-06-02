@@ -20,14 +20,19 @@ if _ROOT not in sys.path:
 import streamlit as st
 
 # --- Bridge Streamlit Cloud secrets into the environment BEFORE importing src.config -------
-# (src.config reads os.environ at import; on Streamlit Cloud creds live in st.secrets.)
+# (src.config reads os.environ at import; on Streamlit Cloud creds live in st.secrets.) Guarded
+# so local runs without a secrets.toml fall back to .env instead of raising.
+try:
+    _secrets = dict(st.secrets)
+except Exception:  # noqa: BLE001 — no secrets.toml locally; use .env
+    _secrets = {}
 for _key in (
     "AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_PROFILE",
     "SUPABASE_DB_URL", "LANGSMITH_API_KEY", "LANGSMITH_PROJECT", "LANGSMITH_TRACING",
     "LOG_JSON", "LOG_LEVEL",
 ):
-    if _key in st.secrets and _key not in os.environ:
-        os.environ[_key] = str(st.secrets[_key])
+    if _key in _secrets and _key not in os.environ:
+        os.environ[_key] = str(_secrets[_key])
 
 from app.example_queries import EXAMPLE_QUERIES  # noqa: E402
 

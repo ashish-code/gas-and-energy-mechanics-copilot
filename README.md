@@ -1,295 +1,125 @@
-# AI Copilot
+# Gas & Energy Mechanics Copilot — v2
 
-An interactive RAG-powered chatbot for engineering documentation built on Strands AI Agent SDK, AWS Bedrock, and FAISS vector search. The application serves as an AI-powered assistant capable of answering questions about engine troubleshooting, configuration parameters, and maintenance procedures.
+**Multi-agent RAG system over US federal pipeline-safety regulations, enforcement actions, and accident investigations. Built as a research-engineering showcase of plan-execute-verify agentic retrieval.**
 
-## Features
+> Production discipline applied to research-grade retrieval techniques, over a small public-domain corpus that stands in for proprietary domain data.
 
-### Core Technologies
+## Live demo
 
-- **[Strands AI Agent SDK](https://strandsagents.com/)** - Modern AI agent framework with A2A protocol support
-- **[Amazon Bedrock](https://aws.amazon.com/)** - Serverless AI (Nova Lite model for LLM inference)
-- **[FAISS](https://github.com/facebookresearch/faiss)** - Vector similarity search for RAG retrieval
-- **[OpenAI Embeddings](https://platform.openai.com/)** - text-embedding-3-small (1536D) for semantic search
-- **[FastAPI](https://fastapi.tiangolo.com/)** - High-performance async web framework
-- **[Streamlit](https://streamlit.io/)** - Interactive web UI for chatbot interface
+🔗 _Streamlit Community Cloud URL — added at deploy (M7)._
 
-### Key Capabilities
+First query is slow (~30–60 s): warm-up + this Bedrock account runs at ~1 req/s. Run `scripts/warm_up_demo.py` ~5 min before a live session.
 
-- **RAG (Retrieval-Augmented Generation)** - Searches 8,524+ engineering document chunks
-- **Real-time Streaming** - Live AI responses via A2A protocol
-- **Source Citations** - Automatic filename and page number references
-- **Conversational AI** - Natural language understanding with clarifying questions
-- **Tool-based Retrieval** - Agent autonomously decides when to search documentation
-- **High-Contrast UI** - Professional Streamlit interface with WCAG AA compliance
+## Demo design philosophy
 
-## Quick Start
+The corpus is a **deliberately small, public-domain slice** (~1.5–2K chunks): selected 49 CFR subparts, ~200 recent PHMSA enforcement actions, and 10 NTSB pipeline accident reports. In a real deployment the corpus would be proprietary domain data that can't be shared publicly — **the architecture is the contribution; the corpus is a stand-in.** ~2K chunks is more than enough to exercise every technique below. **Variety over volume:** three structurally different sources force a real source-router design and enable genuine cross-source (enforcement ↔ regulation ↔ accident) reasoning.
 
-### Prerequisites
+## What's new in v2 (vs v1)
 
-- Python 3.12+ with Anaconda
-- OpenAI API key (for embeddings)
-- AWS credentials with Bedrock access (profile: `bai-core-gbl-ai-ai_developer`)
+v1 was a single-tool Strands agent over a FAISS index of Wikipedia text with fixed-size word chunking. v2 is a ground-up rewrite:
 
-### Setup (2 Simple Steps!)
-
-**Step 1: Start the A2A Server**
-
-```bash
-./run_server.sh
-```
-
-The script will:
-- ✅ Load environment from `.env` file
-- ✅ Verify AWS credentials
-- ✅ Check all required packages
-- ✅ Start server on http://localhost:8080
-- ✅ Load RAG index (8,524 document vectors)
-
-**Step 2: Launch the Chatbot UI**
-
-In a new terminal:
-
-```bash
-./run_chatbot.sh
-```
-
-The Streamlit UI will open at http://localhost:8501
-
-### Configuration
-
-All credentials are stored in `.env` (already configured):
-
-```bash
-export OPENAI_API_KEY="your-key-here"
-export AWS_PROFILE="bai-core-gbl-ai-ai_developer"
-export CONFIG_DIR="./config"
-```
-
-This file is in `.gitignore` and won't be committed to git.
-
-## Usage Examples
-
-### Example Queries
-
-- "What are the daily maintenance procedures for ASC systems?"
-- "How do I troubleshoot engine RPM issues?"
-- "What does error code XYZ mean?"
-- "Explain the voltage reading configuration parameters"
-- "What's the proper air gap setting for speed sensors?"
-
-### Expected Behavior
-
-The chatbot will:
-1. Search the documentation database using FAISS
-2. Retrieve the top 5 most relevant chunks
-3. Provide an answer based on retrieved content
-4. Cite sources with filename and page numbers
-5. Ask clarifying questions if needed
+- **Plan → execute → verify** multi-agent graph (LangGraph) replacing single-shot tool RAG.
+- **Source-router chunking** — three specialized chunkers (eCFR XML walker, PHMSA layout, NTSB structural+semantic) under one schema.
+- **Contextual Retrieval** (Anthropic) — LLM context blurb prepended pre-embedding.
+- **Hybrid retrieval** — dense (Titan V2 + pgvector HNSW) + sparse (BM25) fused with **RRF**.
+- **Multi-query expansion + HyDE** query-side augmentation.
+- **MMR diversification** → **Cohere Rerank 3.5** (cross-encoder, on Bedrock).
+- **Small-to-big** parent-section expansion.
+- **Per-claim verification** — mechanical (citation/quote) + LLM-as-judge entailment; unsupported claims surfaced, not dropped.
+- **Cascade routing** (Sonnet for reasoning, Haiku for orchestration), **structured Pydantic I/O**, **LangSmith tracing**, **RAGAS eval**, Supabase/pgvector, `pydantic-settings`, structlog JSON.
 
 ## Architecture
 
-```
-User Query → Streamlit UI → A2A Server → Strands Agent
-                                              ↓
-                                    ┌─────────┴─────────┐
-                                    ↓                   ↓
-                            RAG Service          Bedrock LLM
-                            (FAISS + OpenAI)     (Nova Lite)
-                                    ↓
-                            8,524 Document Chunks
-```
-
-### System Configuration
-
-- **LLM Model**: AWS Bedrock Nova Lite (us.amazon.nova-lite-v1:0)
-- **Vector Database**: FAISS IndexFlatIP (cosine similarity)
-- **Embeddings**: OpenAI text-embedding-3-small (1536D)
-- **Document Count**: 8,524 chunks
-- **Top-K Retrieval**: 5 documents per query
-- **Region**: us-west-2
-- **Server Port**: 8080
-- **UI Port**: 8501
-
-## Project Structure
-
-```
-.
-├── config/
-│   └── settings.toml          # Agent & RAG configuration
-├── data/
-│   └── rag_index/             # FAISS index + document chunks
-├── src/
-│   └── brightai/
-│       └── ai_copilot/
-│           ├── services/
-│           │   ├── rag_service.py      # RAG retrieval logic
-│           │   └── agent_service.py    # Strands agent setup
-│           └── core/
-│               └── config.py           # Configuration schema
-├── scripts/
-│   └── streamlit.py           # Chatbot UI
-├── .env                       # Environment variables (gitignored)
-├── run_server.sh              # Server launcher
-├── run_chatbot.sh             # Chatbot UI launcher
-├── test_rag_retrieval.py      # RAG testing script
-└── RAG_IMPLEMENTATION.md      # Detailed technical docs
+```mermaid
+flowchart TD
+    Q[User query] --> P[PLAN · Sonnet 4.6<br/>decompose into 1-5 sub-questions<br/>or refuse if out-of-scope]
+    P -->|in scope| E
+    P -->|out of scope| R[REFUSE<br/>visible refusal + reason]
+    subgraph E [EXECUTE · Haiku 4.5 · per sub-question]
+      MQ[multi-query ×3 + HyDE] --> RET[dense Titan→pgvector HNSW<br/>+ sparse BM25, per query form]
+      RET --> RRF[RRF fusion k=60 → top-50]
+      RRF --> MMR[MMR λ=0.6 → top-20]
+      MMR --> RR[Cohere Rerank 3.5 → top-10]
+      RR --> PE[small-to-big parent expansion + dedup]
+    end
+    E --> V[VERIFY+SYNTHESIZE<br/>Sonnet synthesizes claims;<br/>Haiku verifies each: citation✓ quote✓ entailment✓]
+    V --> A[Verified answer<br/>✅ supported / ⚠️ unsupported claims]
+    R --> A
 ```
 
-## Testing
+Each chunk is a paragraph-sized **small** unit sharing a `parent_id` with its siblings; at generation time the parent section is reconstructed from siblings (small-to-big) — no duplicate parent storage.
 
-### Test RAG Retrieval
+## Stack
+
+| Layer | Choice |
+|---|---|
+| Language / deps | Python 3.11+, `uv`, `pyproject.toml` (locked) |
+| Config / logging | `pydantic-settings`, `structlog` JSON + correlation IDs |
+| LLM inference | AWS Bedrock, `us-east-1` |
+| Planner / Synthesizer | Claude **Sonnet 4.6** (`us.anthropic.claude-sonnet-4-6`) |
+| Executor / Verifier / Contextualizer | Claude **Haiku 4.5** (`us.anthropic.claude-haiku-4-5-20251001-v1:0`) |
+| Embeddings | Amazon **Titan Embed V2** (1024D, L2-normalized) |
+| Reranker | **Cohere Rerank 3.5** via Bedrock (`cohere.rerank-v3-5:0`) |
+| Sparse | `rank-bm25` (in-memory) |
+| Vector DB | Supabase Postgres + **pgvector** (HNSW) |
+| Agent framework | **LangGraph** (3-node state machine) |
+| Tracing / Eval | **LangSmith** · **RAGAS** |
+| UI | **Streamlit** |
+
+> Note: Claude 4.x on Bedrock is **inference-profile only** — code uses the `us.*` cross-region inference-profile IDs. Cohere Rerank 3.5 is available in `us-east-1`, so the documented `bge-reranker-base` fallback is not built.
+
+## Quick start
 
 ```bash
-python3 test_rag_retrieval.py
+# 1. Install (runtime + ingestion + eval + dev groups)
+uv sync
+
+# 2. Configure
+cp .env.example .env          # set AWS_PROFILE (local) and SUPABASE_DB_URL
+#  Supabase: create a project, run infra/supabase_schema.sql in the SQL editor,
+#  then paste the Transaction pooler URI (port 6543) into SUPABASE_DB_URL.
+
+# 3. Build the index (fetch → chunk → contextualize → embed → upsert)
+#    One-time; ~60–90 min on a ~1 req/s Bedrock account (embeddings persist).
+uv run python scripts/build_index.py
+
+# 4. Run the demo
+uv run streamlit run app/streamlit_app.py
+
+# 5. (optional) Evaluate
+uv run python scripts/generate_golden_set.py --size 20   # RAGAS test set
+uv run python scripts/run_eval.py                        # -> eval_report.md
 ```
 
-Expected output:
-```
-✅ OpenAI API is working! Embedding dimension: 1536
-✅ FAISS index loaded: 8524 vectors
-✅ Retrieved 3 chunks with citations
-```
+Tests: `uv run pytest` (offline subset runs without AWS/DB).
 
-### Test Server Health
+## Eval results
 
-```bash
-curl http://localhost:8080/health
-```
+_Populated by `scripts/run_eval.py` (see `eval_report.md`). Metrics: faithfulness + answer-relevancy on the hand-curated 10 multi-hop set; + context-precision/recall on the RAGAS-generated set with references. Defaults only — no tuning._
 
-Expected response:
-```json
-{"status":"healthy","service":"ai-copilot"}
-```
+The 10 hand-curated questions (`src/eval/hand_curated.py`) are multi-hop by design — they require planner decomposition and exercise the trace tree. The demo signal is **visible decomposition + visible per-claim verification**, not perfect answers.
 
-### Test End-to-End
+## Research grounding
 
-```bash
-python3 test_chatbot_e2e.py "What are the ASC maintenance procedures?"
-```
+| Technique | Source |
+|---|---|
+| Contextual Retrieval | Anthropic, "Introducing Contextual Retrieval" (Sep 2024) |
+| Hybrid + Reciprocal Rank Fusion | Cormack et al., "Reciprocal Rank Fusion" (SIGIR 2009) |
+| HyDE | Gao et al., "Precise Zero-Shot Dense Retrieval without Relevance Labels" (2022) |
+| Multi-query expansion | Standard query-expansion / RAG-Fusion practice |
+| MMR diversification | Carbonell & Goldstein, "The Use of MMR…" (SIGIR 1998) |
+| Cross-encoder reranking | Nogueira & Cho, "Passage Re-ranking with BERT" (2019); Cohere Rerank 3.5 |
+| Small-to-big / parent-document | LlamaIndex/LangChain parent-document retrieval pattern |
+| Plan-execute & LLM-as-judge | ReAct/Plan-and-Solve lineage; Zheng et al., "Judging LLM-as-a-Judge" (2023) |
+| Evaluation | Es et al., "RAGAS: Automated Evaluation of RAG" (2023) |
 
-## Configuration
+## Future work
 
-### Agent Settings (`config/settings.toml`)
-
-```toml
-[app.agent]
-name = "AI Copilot"
-bedrock_model_id = "us.amazon.nova-lite-v1:0"
-description = "An AI Agent capable of assisting with problems that can be solved by referencing engineering documentation"
-system_prompt = """
-You are a knowledgeable assistant helping with engineering documentation.
-You are providing information about engine troubleshooting, configuration parameters, and error codes.
-You should use a conversational style and ask clarifying questions if needed.
-"""
-```
-
-### RAG Settings
-
-```toml
-[app.rag]
-enabled = true
-index_dir = "data/rag_index"
-top_k = 5
-embedding_provider = "openai"
-embedding_model = "text-embedding-3-small"
-similarity_threshold = 0.0
-```
-
-## Troubleshooting
-
-### Port Already in Use
-
-```bash
-lsof -ti:8080 | xargs kill -9
-./run_server.sh
-```
-
-### AWS Authentication Failed
-
-```bash
-gimme-aws-creds
-export AWS_PROFILE=bai-core-gbl-ai-ai_developer
-aws sts get-caller-identity
-```
-
-### Missing Packages
-
-```bash
-pip install openai faiss-cpu boto3 pandas pyarrow structlog uvicorn streamlit
-```
-
-### RAG Not Finding Documents
-
-Check server logs for:
-```
-[info] Loaded FAISS index with 8524 vectors
-[info] RAG service initialization completed
-```
-
-If missing, verify:
-1. `data/rag_index/` contains: index.faiss, chunks.parquet, meta.json
-2. OPENAI_API_KEY is set in `.env`
-3. Server logs show no errors during startup
-
-## Development
-
-### Original Setup (for reference)
-
-The project can also be run using the original `uv` and `just` setup:
-
-**Prerequisites:**
-- [`uv`](https://docs.astral.sh/uv/) >= v0.9.0
-- [`just`](https://just.systems/man/en/) >= 1.42.4
-
-**Commands:**
-```bash
-just deps        # Install dependencies
-just dev         # Run development server
-just test        # Run tests
-```
-
-**Note:** CodeArtifact authentication is required for this approach.
-
-### Simplified Setup (recommended)
-
-The simplified setup bypasses CodeArtifact and uses system Python packages:
-
-```bash
-./run_server.sh   # Uses .env and system packages
-./run_chatbot.sh  # Launches Streamlit UI
-```
-
-This is the recommended approach for local development.
-
-## Deployment
-
-The application is container-ready and can be deployed to AWS EKS using the existing Terraform configuration in the `terraform/` directory.
-
-**Deployment files:**
-- `Dockerfile` - Container definition
-- `terraform/` - Infrastructure as code
-- `.deploy/` - Deployment configurations
-- `.github/workflows/` - CI/CD pipelines
-
-## Documentation
-
-- **[RAG_IMPLEMENTATION.md](RAG_IMPLEMENTATION.md)** - Comprehensive technical implementation details
-- **API Docs** - http://localhost:8080/docs (when server is running)
-- **Health Check** - http://localhost:8080/health
-
-## Support
-
-For issues or questions:
-- Check [RAG_IMPLEMENTATION.md](RAG_IMPLEMENTATION.md) for technical details
-- Review server logs for error messages
-- Test individual components with test scripts
-
-## License
-
-Internal BrightAI project - All rights reserved
+- Knowledge-graph layer for explicit cross-reference traversal (CFR ↔ enforcement ↔ accident).
+- ColPali for scanned/figure-heavy NTSB pages.
+- Fine-tuned domain embeddings; more aggressive reasoning-model cascade.
+- Multi-tenancy and per-source access control for proprietary corpora.
 
 ---
 
-**Status:** ✅ Fully operational
-**Last Updated:** 2026-01-12
-**Version:** 1.0.0 (RAG-enabled)
+_Built with [Claude Code](https://claude.com/claude-code). See `PLAN.md` for the milestone-by-milestone build log and design decisions._
