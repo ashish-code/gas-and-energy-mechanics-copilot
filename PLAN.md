@@ -124,7 +124,8 @@ if any one source exceeds a 2h block, it gets dropped and noted here + in README
 
 | # | Risk | Likelihood | Mitigation |
 |---|---|---|---|
-| R1 | **eCFR ingestion does not exist in v1** (see §7) — must be built fresh from the eCFR Versioner XML API. | Certain | Budgeted in M2. Versioner API is stable/public; XML structure (`<DIV>` hierarchy) is well-documented. |
+| R1 | **eCFR ingestion does not exist in v1** (see §7) — must be built fresh from the eCFR Versioner XML API. | Certain | Budgeted in M2. Versioner API is stable/public; XML structure (`<DIV>` hierarchy) is well-documented. **Resolved at M2:** `full/{date}/title-49.xml?part=N` → `DIV8 TYPE=SECTION` (N=, HEAD, P, hierarchy_metadata citation), `DIV6`=subpart. |
+| R1b | **Actual eCFR corpus is ~600 chunks, not ~1500.** Parts 192+193+195 in full = 152K words ≈ 592 paragraph-packed chunks. The spec's 1500 estimate overshot the real corpus. | Certain | Accept ~600 eCFR; total corpus ~1600 (eCFR+PHMSA+NTSB). Within the "2–3K, variety>volume" philosophy. Padding to 1500 would mean sub-100-token chunks (over-splitting) — rejected as tuning-for-a-number. Documented in README. |
 | R2 | PHMSA enforcement portal is server-rendered/JS or rate-limits scraping. | Medium | Time-box to 2h; if hostile, drop source and proceed with eCFR+NTSB. |
 | R3 | NTSB report PDFs vary in layout; `pdfplumber` header detection misses sections. | Medium | Structural pass falls back to whole-doc semantic chunking if no headers found; time-box. |
 | R4 | Claude 4.5 inference-profile-only invocation surprises a code path using a raw model ID. | Low (now known) | All model IDs centralized in `config.py` as the `us.` profile IDs. |
