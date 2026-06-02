@@ -2,97 +2,81 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[dependency-groups]
-dev = [
-  "coverage>=7.11.0",
-  "mypy[faster-cache]>=1.18.2",
-  "pytest>=8.4.2",
-  "pytest-cov>=7.0.0",
-  "pytest-integration>=0.2.3",
-  "pytest-mock>=3.15.1",
-  "strands-agents-tools[a2a-client]>=0.2.16",
-  "streamlit>=1.51.0",
-  "uvicorn[standard]>=0.38.0"
-]
-
 [project]
-dependencies = [
-  "fastapi[standard]",
-  "typed-settings>=25.0.0,<26.0.0",
-  "typed-settings[attrs]",
-  "uvicorn[standard]",
-  "structlog>=24.0.0",
-  "asgi-correlation-id>=4.3.4",
-  "strands-agents[a2a]>=1.18.0",
-  "faiss-cpu>=1.9.0",
-  "boto3>=1.35.0",
-  "pandas>=2.0.0",
-  "pyarrow>=18.0.0",
-  "openai>=1.0.0"
-]
 name = "gas-and-energy-mechanics-copilot"
-description = "RAG-powered AI chatbot for gas & energy engineering documentation, built on Amazon Bedrock Nova Lite and FAISS."
+version = "2.0.0"
+description = "Multi-agent plan-execute-verify RAG over US federal pipeline-safety regulations, enforcement actions, and accident reports. Research-engineering showcase."
 readme = "README.md"
-requires-python = "~=3.13.0"
-version = "1.0.0"
+requires-python = ">=3.11,<3.14"
 
-[project.optional-dependencies]
-test = ["pytest", "pytest-cov"]
-dev = ["mypy", "ruff"]
+# --- Runtime dependencies (what the Streamlit app + agent graph need at query time) ---
+# Kept deliberately lean for the Streamlit Community Cloud 1 GB RAM ceiling: no local
+# ML models, no ingestion/eval heavyweights. The reranker is remote (Bedrock).
+dependencies = [
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "structlog>=24.1",
+  "boto3>=1.35.0",            # Bedrock runtime + bedrock-agent-runtime (Rerank API)
+  "tenacity>=8.3",           # retry/backoff for Bedrock calls
+  "numpy>=1.26",             # MMR, vector math
+  "psycopg[binary]>=3.2",    # Supabase Postgres (raw SQL for pgvector cosine)
+  "pgvector>=0.3.6",         # psycopg vector adapter
+  "rank-bm25>=0.2.2",        # in-memory sparse retrieval (~20 MB at this corpus size)
+  "langgraph>=0.2.60",       # 3-node state machine
+  "langchain-core>=0.3.30",
+  "langchain-aws>=0.2.10",   # ChatBedrockConverse (handles inference-profile IDs)
+  "langsmith>=0.1.140",      # tracing (env-gated)
+  "streamlit>=1.40",
+]
 
-[tool.coverage.report]
-exclude_lines = ["@(abc\\.)?abstractmethod", "\\.\\.\\.$", "# pragma: no cover"]
+# --- Optional groups: NOT installed on Streamlit Cloud; used by build_index / eval / tests ---
+[dependency-groups]
+ingestion = [
+  "httpx>=0.27",
+  "beautifulsoup4>=4.12",
+  "lxml>=5.2",
+  "pdfplumber>=0.11",
+]
+eval = [
+  "ragas>=0.2.6",
+  "datasets>=2.20",
+]
+dev = [
+  "pytest>=8.2",
+  "pytest-mock>=3.14",
+  "ruff>=0.6",
+  "mypy>=1.11",
+  {include-group = "ingestion"},
+  {include-group = "eval"},
+]
 
-[tool.coverage.run]
-branch = true
-concurrency = ["multiprocessing", "thread"]
-omit = ["src/brightai/**/__version__.py", "tests/*"]
-parallel = true
-relative_files = true
-sigterm = true
+[tool.uv]
+default-groups = ["dev"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/brightai"]
-
-[tool.mypy]
-disallow_any_generics = true
-disallow_incomplete_defs = true
-disallow_untyped_calls = true
-disallow_untyped_decorators = true
-disallow_untyped_defs = true
-explicit_package_bases = true
-files = "src/,tests/"
-follow_imports = "normal"
-ignore_missing_imports = true
-mypy_path = "src/,stubs/,tests/"
-namespace_packages = true
-no_implicit_reexport = true
-plugins = []
-show_error_codes = true
-show_error_context = true
-strict_equality = true
-strict_optional = true
-warn_redundant_casts = true
-warn_return_any = true
-warn_unused_ignores = true
-
-[tool.pyrefly]
-project-includes = ["src/", "tests/"]
-search-path = ["src/", "tests/"]
-ignore-missing-imports = ["*"]
+packages = ["src"]
 
 [tool.ruff]
 line-length = 120
-src = ["src", "tests"]
+src = ["src", "tests", "scripts", "app"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
-unfixable = ["F841"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
 force-sort-within-sections = true
-known-first-party = ["brightai"]
+known-first-party = ["src"]
 
-[tool.uv]
-package = true
+[tool.mypy]
+files = "src/"
+python_version = "3.11"
+ignore_missing_imports = true
+disallow_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

@@ -182,8 +182,15 @@ __marimo__/
 
 local.toml
 
-# RAG data (FAISS index and document chunks)
+# Streamlit Cloud secrets (the .example is committed; the real file is not)
+.streamlit/secrets.toml
+
+# Corpus + index data is gitignored, EXCEPT tiny committed test fixtures.
 data/
+!data/golden_set/
+!data/golden_set/**
+!data/fixtures/
+!data/fixtures/**
 
 # Terraform — local state and provider cache (lock file IS committed)
 terraform/.terraform/
