@@ -30,12 +30,24 @@ def _dsn() -> str:
     return settings.supabase_db_url
 
 
+def make_connection(*, autocommit: bool = False) -> psycopg.Connection:
+    """A pgvector-enabled psycopg connection that is safe on Supabase's transaction pooler.
+
+    `prepare_threshold=None` disables psycopg3's automatic server-side prepared statements —
+    these break under pgbouncer transaction-mode pooling (backends are reassigned per
+    transaction, so a prepared statement vanishes / collides), which manifests as hangs after
+    a handful of identical queries. This is essential for both the app and the batch jobs.
+    """
+    conn = psycopg.connect(_dsn(), prepare_threshold=None, autocommit=autocommit, connect_timeout=15)
+    register_vector(conn)
+    return conn
+
+
 @contextmanager
 def connect() -> Iterator[psycopg.Connection]:
-    """A pgvector-enabled connection (context-managed)."""
-    conn = psycopg.connect(_dsn())
+    """A pgvector-enabled connection (context-managed). Explicit-commit (autocommit off)."""
+    conn = make_connection(autocommit=False)
     try:
-        register_vector(conn)
         yield conn
     finally:
         conn.close()

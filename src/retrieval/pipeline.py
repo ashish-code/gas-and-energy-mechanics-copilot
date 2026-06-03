@@ -44,12 +44,11 @@ class Retriever:
 
     @classmethod
     def open(cls) -> "Retriever":
-        """Open a fresh DB connection and build the retriever (caller owns lifecycle)."""
-        conn = psycopg.connect(settings.supabase_db_url)  # type: ignore[arg-type]
-        from pgvector.psycopg import register_vector
+        """Open a pooler-safe DB connection and build the retriever (caller owns lifecycle)."""
+        from src.store import make_connection
 
-        register_vector(conn)
-        return cls(conn)
+        # autocommit: read-only retrieval queries, friendliest to the transaction pooler.
+        return cls(make_connection(autocommit=True))
 
     def retrieve(self, question: str, *, source: str | None = None) -> list[Evidence]:
         # 1-2. Multi-query expansion + HyDE.
