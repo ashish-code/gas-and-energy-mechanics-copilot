@@ -66,7 +66,9 @@ def _evidence_block(evidence: list[Evidence]) -> str:
 
 
 def synthesize(query: str, evidence: list[Evidence]) -> DraftAnswer:
-    model = chat_model(settings.model_synthesizer, temperature=0.0, max_tokens=2048).with_structured_output(
+    # 4096 tokens: detailed multi-part comparison answers + their claim list can exceed 2048,
+    # and a truncated structured output drops the claims array entirely.
+    model = chat_model(settings.model_synthesizer, temperature=0.0, max_tokens=4096).with_structured_output(
         DraftAnswer
     )
     prompt = f"Question: {query}\n\nEVIDENCE:\n{_evidence_block(evidence)}"

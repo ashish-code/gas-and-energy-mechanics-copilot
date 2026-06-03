@@ -16,7 +16,9 @@ def ragas_llm() -> LangchainLLMWrapper:
         model=settings.model_synthesizer,
         region_name=settings.aws_region,
         temperature=0.0,
-        max_tokens=2048,
+        # RAGAS faithfulness emits one NLI verdict per extracted statement; detailed answers
+        # produce long JSON that truncates (-> parse error -> nan) at 2048. 8192 gives headroom.
+        max_tokens=8192,
         client=bedrock_runtime(),
     )
     return LangchainLLMWrapper(model)

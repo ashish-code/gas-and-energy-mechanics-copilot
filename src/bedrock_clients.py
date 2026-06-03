@@ -27,9 +27,12 @@ def _install_throttle(client: "boto3.client") -> "boto3.client":
     client.meta.events.register("before-send.bedrock-agent-runtime", lambda **_: throttle())
     return client
 
+# "standard" (not "adaptive") retries: adaptive adds its OWN client-side rate limiter that
+# stalls for minutes after a throttle event and conflicts with our single global limiter.
+# Our src.ratelimit owns pacing; botocore just does plain exponential-backoff retries.
 _BOTO_CONFIG = Config(
     region_name=settings.aws_region,
-    retries={"max_attempts": 5, "mode": "adaptive"},
+    retries={"max_attempts": 3, "mode": "standard"},
     read_timeout=120,
     connect_timeout=10,
 )
