@@ -28,11 +28,21 @@ _SYNTH_SYSTEM = """You answer questions about US pipeline-safety regulation STRI
 provided evidence. Do not use outside knowledge. If the evidence is insufficient, say so in the \
 summary rather than guessing.
 
-Write a clear summary, then break it into atomic claims. For EACH claim provide:
-  - citation: the human-readable source (e.g. "49 CFR 192.619", "PHMSA 52026001NOPV", "NTSB PAR-11/01")
-  - chunk_id: the exact [evidence id] you used (copy it verbatim from the evidence block)
-  - quote: a SHORT verbatim span (<=160 chars) copied exactly from that evidence supporting the claim
-Every claim must be grounded in a specific evidence item. Prefer fewer, well-supported claims."""
+Return TWO things:
+1. summary: a clear prose answer synthesized only from the evidence.
+2. claims: the summary decomposed into atomic, individually-checkable factual assertions.
+
+REQUIREMENTS for claims (these are mandatory):
+  - Produce one claim for EACH distinct fact in your summary — typically 3 to 8 claims.
+  - An empty claims list is INVALID whenever you have written a non-trivial summary. If you
+    state something in the summary, it MUST appear as a claim.
+  - Each claim has:
+      * text: one atomic assertion.
+      * chunk_id: copied VERBATIM from one of the [bracketed ids] in the EVIDENCE block — this
+        is the evidence item that supports the claim. Use the id exactly as shown, e.g. [ntsb-PAR1401:sec:2].
+      * citation: the human-readable source (e.g. "49 CFR 192.619", "PHMSA 52026001NOPV", "NTSB PAR1401").
+      * quote: a SHORT (<=160 char) span copied EXACTLY from that evidence item's text.
+  - Every claim must be grounded in a specific evidence item shown below. Do not invent ids."""
 
 _JUDGE_SYSTEM = (
     "You are a strict entailment judge. Given EVIDENCE and a CLAIM, decide whether the evidence "
