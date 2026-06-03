@@ -100,15 +100,23 @@ Tests: `uv run pytest` (offline subset runs without AWS/DB).
 Two complementary signals: RAGAS metrics (`scripts/run_eval.py` → `eval_report.md`) and the
 agent's **own** per-claim verification (a native, audited faithfulness measure).
 
+Run over all 10 hand-curated multi-hop questions (`eval_report.md`, defaults, no tuning):
+
 | signal | value | notes |
 |---|---|---|
-| RAGAS answer-relevancy | **0.949** | clean run on the hand-curated set; defaults, no tuning |
-| Native verification (example) | 8 claims → **6 verified / 2 surfaced unsupported** | the 2 overstated the evidence; flagged, not dropped |
+| Questions answered in-scope | **10 / 10** | planner decomposed each into 2–5 sub-questions |
+| Evidence retrieved | 10–31 parent sections / question | 9-lane fusion → rerank → small-to-big |
+| Native verified-claim rate | **50 / 106 = 0.47** | the other 56 claims surfaced as `unsupported`, not dropped |
+| RAGAS answer-relevancy | **0.949** | clean single-question run |
 
-The agent's verifier is itself a faithfulness gate — each claim must have an existing
-citation, a quote that matches the source, and an entailment pass (Haiku LLM-as-judge);
-failures are surfaced as `unsupported_claims`. This is the trust signal the demo is built
-around: **visible decomposition + visible per-claim verification**, not perfect answers.
+The agent's verifier is itself a strict faithfulness gate — each claim must pass **three**
+checks: the citation exists in retrieved evidence, the quoted span matches the source
+verbatim, and a Haiku LLM-as-judge confirms the evidence entails the claim. ~Half the
+synthesized claims clear all three; the rest are **surfaced** as `unsupported_claims`. A
+moderate verified-rate is the point: the verifier is a real audit, not a rubber stamp, and
+the system never presents an ungrounded claim as fact. This — **visible decomposition +
+visible per-claim verification** — is the trust signal the demo is built around, not a high
+pass rate.
 
 > Eval throughput note: full RAGAS metrics over the 10/40-question sets run sequentially
 > against this ~1 req/s Bedrock account, so the complete sweep is a long one-time job
