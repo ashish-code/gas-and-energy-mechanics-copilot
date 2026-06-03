@@ -30,9 +30,34 @@ def _fmt(scores: dict[str, float]) -> str:
     return "\n".join(f"| {k} | {v:.3f} |" for k, v in sorted(scores.items())) or "| (none) | — |"
 
 
+def _native_table(native: list[dict]) -> list[str]:
+    rows = ["| id | refused | sub-qs | evidence | verified | unsupported |", "|---|---|---|---|---|---|"]
+    for n in native:
+        rows.append(
+            f"| {n['id']} | {'yes' if n['refused'] else 'no'} | {n['sub_questions']} | "
+            f"{n['evidence']} | {n['verified_claims']} | {n['unsupported_claims']} |"
+        )
+    tot_v = sum(n["verified_claims"] for n in native)
+    tot_u = sum(n["unsupported_claims"] for n in native)
+    rate = tot_v / (tot_v + tot_u) if (tot_v + tot_u) else 0.0
+    rows += ["", f"**Verified-claim rate: {tot_v}/{tot_v + tot_u} = {rate:.2f}** "
+             f"(unsupported claims surfaced, not dropped)."]
+    return rows
+
+
+def _score_safely(samples: list[dict], *, with_reference: bool) -> dict[str, float]:
+    """RAGAS scoring is token-heavy and can fail (truncation/throttle); never sink the report."""
+    try:
+        return evaluate_samples(samples, with_reference=with_reference)
+    except Exception as e:  # noqa: BLE001
+        log.warning("eval.ragas_failed", error=str(e))
+        return {}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--hand-only", action="store_true")
+    ap.add_argument("--no-ragas", action="store_true", help="native verification stats only (skip RAGAS)")
     ap.add_argument("--limit", type=int, default=None)
     args = ap.parse_args()
 
@@ -43,15 +68,17 @@ def main() -> None:
 
     lines = ["# Evaluation report", ""]
 
-    # --- Hand-curated multi-hop (10) ---
+    # --- Hand-curated multi-hop set: agent runs (native stats) + optional RAGAS ---
     hand = HAND_CURATED_MULTI_HOP_QUESTIONS[: args.limit] if args.limit else HAND_CURATED_MULTI_HOP_QUESTIONS
     log.info("eval.hand_curated.start", n=len(hand))
-    hand_samples = build_samples(copilot, [{"question": q["question"]} for q in hand])
-    hand_scores = evaluate_samples(hand_samples, with_reference=False)
-    lines += ["## Hand-curated multi-hop set", "", f"{len(hand)} questions (no reference answers).", ""]
-    lines += ["| metric | score |", "|---|---|", _fmt(hand_scores), ""]
+    hand_samples, hand_native = build_samples(copilot, [{"id": q["id"], "question": q["question"]} for q in hand])
 
-    # Per-tag refusal/answer visibility (the demo signal).
+    lines += ["## Hand-curated multi-hop set", "", f"{len(hand)} questions.", ""]
+    lines += ["### Native per-claim verification", ""] + _native_table(hand_native) + [""]
+    if not args.no_ragas:
+        hand_scores = _score_safely(hand_samples, with_reference=False)
+        lines += ["### RAGAS", "", "| metric | score |", "|---|---|", _fmt(hand_scores), ""]
+
     by_tag: dict[str, int] = defaultdict(int)
     for q in hand:
         for t in q["tags"]:
@@ -60,16 +87,15 @@ def main() -> None:
     lines += [f"| {t} | {n} |" for t, n in sorted(by_tag.items())] + [""]
 
     # --- Generated RAGAS set (with references) ---
-    if not args.hand_only and RAGAS_SET.exists():
+    if not args.hand_only and not args.no_ragas and RAGAS_SET.exists():
         gen = json.loads(RAGAS_SET.read_text())
         gen = gen[: args.limit] if args.limit else gen
         log.info("eval.ragas_set.start", n=len(gen))
-        gen_samples = build_samples(copilot, gen)
-        gen_scores = evaluate_samples(gen_samples, with_reference=True)
+        gen_samples, _ = build_samples(copilot, gen)
         lines += ["## Generated test set (RAGAS, with references)", "", f"{len(gen)} questions.", ""]
-        lines += ["| metric | score |", "|---|---|", _fmt(gen_scores), ""]
+        lines += ["| metric | score |", "|---|---|", _fmt(_score_safely(gen_samples, with_reference=True)), ""]
     else:
-        lines += ["## Generated test set", "", "_Not run (no ragas_set.json; run generate_testset.py first)._", ""]
+        lines += ["## Generated test set", "", "_Not run (no ragas_set.json, or --hand-only/--no-ragas)._", ""]
 
     REPORT.write_text("\n".join(lines))
     log.info("eval.done", report=str(REPORT))

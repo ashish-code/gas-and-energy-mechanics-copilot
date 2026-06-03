@@ -19,13 +19,19 @@ from src.logging_setup import get_logger
 log = get_logger(__name__)
 
 
-def build_samples(copilot: Copilot, questions: list[dict]) -> list[dict]:
-    """Run the agent over questions -> RAGAS sample dicts. `questions` items: {question, reference?}."""
+def build_samples(copilot: Copilot, questions: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Run the agent over questions. Returns (ragas_samples, native_stats).
+
+    ragas_samples carry only RAGAS fields; native_stats carry the agent's own per-question
+    verification (sub-questions, evidence, verified vs unsupported claims, refusal).
+    """
     samples: list[dict] = []
+    native: list[dict] = []
     for i, q in enumerate(questions, 1):
         state = copilot.ask(q["question"])
         answer = state.get("answer")
         evidence = state.get("evidence", []) or []
+        plan = state.get("plan")
         if answer and not answer.refused:
             response = answer.summary or ""
         else:
@@ -38,8 +44,16 @@ def build_samples(copilot: Copilot, questions: list[dict]) -> list[dict]:
         if q.get("reference"):
             sample["reference"] = q["reference"]
         samples.append(sample)
-        log.info("eval.sample", done=i, total=len(questions), contexts=len(sample["retrieved_contexts"]))
-    return samples
+        native.append({
+            "id": q.get("id", f"Q{i}"),
+            "refused": bool(answer and answer.refused),
+            "sub_questions": len(plan.sub_questions) if plan else 0,
+            "evidence": len(evidence),
+            "verified_claims": len(answer.claims) if answer else 0,
+            "unsupported_claims": len(answer.unsupported_claims) if answer else 0,
+        })
+        log.info("eval.sample", done=i, total=len(questions), **native[-1])
+    return samples, native
 
 
 def evaluate_samples(samples: list[dict], *, with_reference: bool) -> dict[str, float]:
