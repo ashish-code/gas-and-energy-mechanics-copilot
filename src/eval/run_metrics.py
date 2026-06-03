@@ -9,8 +9,12 @@ hand-curated 10-set (no references) gets faithfulness + answer relevancy. Defaul
 from __future__ import annotations
 
 from src.agents.graph import Copilot
-from src.eval._bedrock import ragas_embeddings, ragas_llm
 from src.logging_setup import get_logger
+
+# NOTE: ragas (and src.eval._bedrock, which imports it) are imported lazily inside
+# evaluate_samples — NOT at module top. Importing ragas in the same process that then runs
+# the agent pipeline causes the retrieval phase to hang (ragas' import side effects perturb
+# the run). Keeping the import after all agent runs (build_samples) avoids the interaction.
 
 log = get_logger(__name__)
 
@@ -42,6 +46,8 @@ def evaluate_samples(samples: list[dict], *, with_reference: bool) -> dict[str, 
     """Compute RAGAS metrics over the samples."""
     from ragas import EvaluationDataset, evaluate
     from ragas.metrics import Faithfulness, ResponseRelevancy
+
+    from src.eval._bedrock import ragas_embeddings, ragas_llm
 
     metrics = [Faithfulness(), ResponseRelevancy()]
     if with_reference:
