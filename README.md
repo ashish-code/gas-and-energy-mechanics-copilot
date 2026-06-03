@@ -93,6 +93,8 @@ uv run python scripts/run_eval.py                        # -> eval_report.md
 
 Tests: `uv run pytest` (offline subset runs without AWS/DB).
 
+**Deploy:** see [`DEPLOY.md`](DEPLOY.md) for the Streamlit Community Cloud steps + the dedicated least-privilege IAM user (`iam/streamlit-bedrock-policy.json`).
+
 ## Eval results
 
 _Populated by `scripts/run_eval.py` (see `eval_report.md`). Metrics: faithfulness + answer-relevancy on the hand-curated 10 multi-hop set; + context-precision/recall on the RAGAS-generated set with references. Defaults only — no tuning._
