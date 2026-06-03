@@ -13,6 +13,19 @@ import boto3
 from botocore.config import Config
 
 from src.config import settings
+from src.ratelimit import throttle
+
+
+def _install_throttle(client: "boto3.client") -> "boto3.client":
+    """Pace every HTTP send on this client through the global limiter.
+
+    Registered at the botocore layer so it covers ALL Bedrock traffic uniformly — our own
+    invoke_model/converse AND LangChain's ChatBedrockConverse and RAGAS's judge calls — without
+    each call site having to remember to throttle.
+    """
+    client.meta.events.register("before-send.bedrock-runtime", lambda **_: throttle())
+    client.meta.events.register("before-send.bedrock-agent-runtime", lambda **_: throttle())
+    return client
 
 _BOTO_CONFIG = Config(
     region_name=settings.aws_region,
@@ -39,10 +52,10 @@ def get_session() -> boto3.Session:
 @lru_cache(maxsize=1)
 def bedrock_runtime() -> boto3.client:
     """For invoke_model (Titan embeddings) and Converse (LLMs)."""
-    return get_session().client("bedrock-runtime", config=_BOTO_CONFIG)
+    return _install_throttle(get_session().client("bedrock-runtime", config=_BOTO_CONFIG))
 
 
 @lru_cache(maxsize=1)
 def bedrock_agent_runtime() -> boto3.client:
     """For the Rerank API (Cohere Rerank 3.5)."""
-    return get_session().client("bedrock-agent-runtime", config=_BOTO_CONFIG)
+    return _install_throttle(get_session().client("bedrock-agent-runtime", config=_BOTO_CONFIG))

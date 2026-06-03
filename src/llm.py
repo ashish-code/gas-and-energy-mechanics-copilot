@@ -18,7 +18,6 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from src.bedrock_clients import bedrock_runtime
 from src.config import settings
-from src.ratelimit import throttle
 
 
 @retry(
@@ -36,7 +35,6 @@ def converse(
     temperature: float = 0.0,
 ) -> str:
     """Single-turn Converse call returning the assistant text."""
-    throttle()  # global pacing to stay under the account's ~1 req/s limit
     kwargs: dict = {
         "modelId": model_id,
         "messages": [{"role": "user", "content": [{"text": prompt}]}],
