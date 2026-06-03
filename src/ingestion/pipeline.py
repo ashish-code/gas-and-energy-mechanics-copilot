@@ -60,13 +60,26 @@ def gather(
 
 
 def contextualize_and_embed(documents: list[Document], chunks: list[Chunk]) -> list[Chunk]:
-    """Prepend Contextual-Retrieval blurbs, then embed `contextualized_text` with Titan."""
+    """Prepend Contextual-Retrieval blurbs, then embed `contextualized_text` with Titan.
+
+    Crash-proof: a chunk whose embedding fails (after retries) is dropped with a warning
+    rather than aborting the whole build — at this corpus size a handful of drops is
+    acceptable, a lost 90-minute build is not.
+    """
     titles = {d.id: (d.title or d.source) for d in documents}
     contextualize(chunks, titles)
 
     embedder = TitanEmbedder()
-    vectors = embedder.embed_batch([c.contextualized_text or c.text for c in chunks])
-    for c, v in zip(chunks, vectors):
-        c.embedding = v
-    log.info("ingest.embedded", chunks=len(chunks))
-    return chunks
+    embedded: list[Chunk] = []
+    failed = 0
+    for i, c in enumerate(chunks, 1):
+        try:
+            c.embedding = embedder.embed_text(c.contextualized_text or c.text)
+            embedded.append(c)
+        except Exception as e:  # noqa: BLE001
+            failed += 1
+            log.warning("ingest.embed_failed", chunk_id=c.chunk_id, error=str(e))
+        if i % 250 == 0:
+            log.info("ingest.embed_progress", done=i, total=len(chunks), kept=len(embedded))
+    log.info("ingest.embedded", kept=len(embedded), dropped=failed, total=len(chunks))
+    return embedded

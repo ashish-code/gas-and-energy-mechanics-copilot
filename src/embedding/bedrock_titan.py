@@ -16,6 +16,7 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 from src.bedrock_clients import bedrock_runtime
 from src.config import settings
 from src.logging_setup import get_logger
+from src.ratelimit import throttle
 
 log = get_logger(__name__)
 
@@ -39,6 +40,7 @@ class TitanEmbedder:
     )
     def embed_text(self, text: str) -> list[float]:
         """Embed one text -> L2-normalized 1024D vector."""
+        throttle()  # global pacing to stay under the account's ~1 req/s limit
         body = json.dumps(
             {"inputText": text[:_MAX_CHARS], "dimensions": self.dim, "normalize": True}
         )
