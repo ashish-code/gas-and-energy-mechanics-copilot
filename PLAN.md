@@ -182,6 +182,25 @@ None of this changes scope or budget — M2 already budgets fresh eCFR work — 
 
 ---
 
+## 9b. Validation log (live, post-build)
+
+Validated end-to-end against a 143-chunk smoke index, then the full corpus:
+
+- **Corpus (full build):** 2,082 chunks / 213 docs — 859 eCFR (Parts 192/193/195), 200 PHMSA
+  enforcement actions, ~1,023 NTSB (10 reports). In the "2–3K, variety>volume" target.
+- **Write path:** fetch → source-router chunk → contextualize (Haiku) → embed (Titan) → upsert
+  (psycopg/pgvector). ✓
+- **Retrieval (live):** 9 fusion lanes (orig+3 multi-query+HyDE × dense/sparse) → RRF top-50 →
+  MMR top-20 → **Cohere Rerank** top-10 → parent expansion. Probable-cause query returned the
+  correct NTSB sections at rerank score 0.95. ✓ (~15 s isolated)
+- **Agent (live):** plan (2 sub-questions) → execute → synthesize (8 atomic claims) → verify
+  (6 supported via citation+quote+entailment; **2 correctly surfaced as unsupported** for
+  overstating the evidence). ✓ (~48 s)
+- **Refusal (live):** out-of-corpus query routed plan→refuse with a clear reason, 0 claims. ✓
+- **Bug fixed:** synthesizer initially returned 0 claims (summary only); strengthened the
+  prompt to mandate atomic claim decomposition. ✓
+- **Tracing:** LangSmith enabled (env-gated). **Tests:** 14 offline unit tests pass.
+
 ## 10. Exit criterion for M0
 
 User approves this `PLAN.md`. Then: `git checkout -b v2` and begin M1. No code is written before approval.
