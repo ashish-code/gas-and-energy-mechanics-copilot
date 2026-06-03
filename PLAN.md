@@ -200,6 +200,15 @@ Validated end-to-end against a 143-chunk smoke index, then the full corpus:
 - **Bug fixed:** synthesizer initially returned 0 claims (summary only); strengthened the
   prompt to mandate atomic claim decomposition. ✓
 - **Tracing:** LangSmith enabled (env-gated). **Tests:** 14 offline unit tests pass.
+- **Eval (live):** native per-claim verification over the hand-curated set runs end-to-end;
+  e.g. verified-claim rate ~0.65 on the first 3 (unsupported surfaced, not dropped);
+  RAGAS answer_relevancy 0.949. Full sweep is slow (~1 req/s) but reliable.
+- **Critical bug found + fixed (the big one):** psycopg3 auto-prepares statements after ~5
+  identical queries; under Supabase's pgbouncer **transaction pooler** that breaks and
+  retrieval **hangs silently**. Fixed via `make_connection(prepare_threshold=None)`. This
+  had also been masquerading as / compounding with Bedrock throttle. Would have broken the
+  deployed app too. Secondary reliability work: global Bedrock rate limiter (botocore
+  before-send hook), standard (not adaptive) retries, crash-proof embed phase.
 
 ## 10. Exit criterion for M0
 
