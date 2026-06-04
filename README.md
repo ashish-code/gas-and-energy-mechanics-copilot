@@ -6,9 +6,11 @@
 
 ## Live demo
 
-🔗 _Streamlit Community Cloud URL — added at deploy (M7)._
+🔗 **https://gas-and-energy-mechanics-copilot.streamlit.app/**
 
-First query is slow (~30–60 s): warm-up + this Bedrock account runs at ~1 req/s. Run `scripts/warm_up_demo.py` ~5 min before a live session.
+First query is slow (~30–60 s): warm-up + this Bedrock account runs at ~1 req/s. Run
+`scripts/warm_up_demo.py --url https://gas-and-energy-mechanics-copilot.streamlit.app/` ~5 min
+before a live session to wake it from cold-sleep.
 
 ## Demo design philosophy
 
