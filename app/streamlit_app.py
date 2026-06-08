@@ -37,6 +37,7 @@ for _key in (
 from app.example_queries import EXAMPLE_QUERIES  # noqa: E402
 
 from src.agents.graph import Copilot  # noqa: E402
+from src.eval.hand_curated import HAND_CURATED_MULTI_HOP_QUESTIONS  # noqa: E402
 from src.logging_setup import configure_logging  # noqa: E402
 from src.observability.langsmith_setup import setup_langsmith  # noqa: E402
 
@@ -131,6 +132,22 @@ def main() -> None:
         for ex in EXAMPLE_QUERIES:
             if st.button(ex["label"], use_container_width=True):
                 st.session_state["query"] = ex["query"]
+
+        st.divider()
+        st.subheader("Evaluation questions")
+        st.caption("The 10 hand-curated multi-hop questions used to evaluate the system.")
+        eval_labels = {
+            f"{q['id']} — {q['question'][:52]}…": q["question"]
+            for q in HAND_CURATED_MULTI_HOP_QUESTIONS
+        }
+        choice = st.selectbox(
+            "Pick a multi-hop eval question",
+            ["—"] + list(eval_labels),
+            label_visibility="collapsed",
+        )
+        if choice != "—" and st.button("Load eval question", use_container_width=True):
+            st.session_state["query"] = eval_labels[choice]
+
         st.divider()
         st.caption("First query is slow (~30–60s cold start: warm-up + ~1 req/s Bedrock).")
 
