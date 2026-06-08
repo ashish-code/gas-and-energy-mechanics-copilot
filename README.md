@@ -8,6 +8,8 @@
 
 🔗 **https://gas-and-energy-mechanics-copilot.streamlit.app/**
 
+📄 **Detailed component report:** [`PROJECT_REPORT.md`](PROJECT_REPORT.md) · 🗺️ **Interactive system diagram (Miro):** https://miro.com/app/board/uXjVHI06Ju8=/
+
 First query is slow (~30–60 s): warm-up + this Bedrock account runs at ~1 req/s. Run
 `scripts/warm_up_demo.py --url https://gas-and-energy-mechanics-copilot.streamlit.app/` ~5 min
 before a live session to wake it from cold-sleep.
