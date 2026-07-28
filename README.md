@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="docs/banner.svg" alt="Energy Mechanics Copilot — multi-agent RAG over pipeline-safety regulations" width="100%">
+</div>
+
 # Gas & Energy Mechanics Copilot — v2
 
 **Multi-agent RAG system over US federal pipeline-safety regulations, enforcement actions, and accident investigations. Built as a research-engineering showcase of plan-execute-verify agentic retrieval.**
